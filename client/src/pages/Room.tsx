@@ -4,6 +4,7 @@ import type { Participant, RoomCodeInfo, RoomSummary } from "@synccode/shared";
 import { fetchRoomCode, fetchRoomState, leaveRoom, refreshRoomToken } from "../features/rooms/api";
 import { clearStoredRoomToken, getStoredRoomToken, setStoredRoomToken } from "../features/rooms/roomTokenStorage";
 import { CodeRing } from "../features/rooms/CodeRing";
+import { EditorWorkspace } from "../features/editor/EditorWorkspace";
 
 const CODE_POLL_MS = 5_000;
 const TOKEN_REFRESH_MS = 10 * 60_000;
@@ -120,57 +121,38 @@ export function Room() {
   }
 
   return (
-    <div className="min-h-screen bg-editor-bg text-editor-text">
-      <header className="flex items-center justify-between border-b border-editor-border px-6 py-3">
+    <div className="h-screen overflow-hidden bg-editor-bg text-editor-text">
+      <header className="flex h-14 items-center justify-between border-b border-editor-border px-4">
         <div>
-          <h1 className="font-semibold text-white">{room.name}</h1>
+          <h1 className="text-sm font-semibold text-white">{room.name}</h1>
           <p className="text-xs text-editor-muted">
             You're a <span className="text-editor-accent">{you.role}</span>
           </p>
         </div>
-        <button
-          onClick={handleLeave}
-          className="rounded-md border border-editor-border px-3 py-1.5 text-sm text-editor-muted transition hover:text-white"
-        >
-          Leave room
-        </button>
+
+        <div className="flex items-center gap-4">
+          {you.role === "owner" && codeInfo && (
+            <div className="flex items-center gap-2 rounded-md border border-editor-border bg-editor-panel px-3 py-1">
+              <CodeRing rotatesAt={codeInfo.rotatesAt} size={28} />
+              <span className="font-mono text-sm tracking-[0.2em] text-white">{codeInfo.code}</span>
+              <button
+                onClick={handleCopy}
+                className="text-xs text-editor-muted transition hover:text-white"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          )}
+          <button
+            onClick={handleLeave}
+            className="rounded-md border border-editor-border px-3 py-1.5 text-sm text-editor-muted transition hover:text-white"
+          >
+            Leave room
+          </button>
+        </div>
       </header>
 
-      <div className="mx-auto max-w-3xl p-6">
-        {you.role === "owner" && codeInfo && (
-          <div className="mb-6 flex items-center gap-4 rounded-lg border border-editor-border bg-editor-panel p-4">
-            <CodeRing rotatesAt={codeInfo.rotatesAt} />
-            <div className="flex-1">
-              <p className="text-xs text-editor-muted">Share this code with your team</p>
-              <p className="font-mono text-2xl tracking-[0.3em] text-white">{codeInfo.code}</p>
-            </div>
-            <button
-              onClick={handleCopy}
-              className="rounded-md border border-editor-border px-3 py-1.5 text-sm text-editor-muted transition hover:text-white"
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
-        )}
-
-        <div className="rounded-lg border border-editor-border bg-editor-panel p-4">
-          <p className="mb-3 text-xs text-editor-muted">
-            {participants.length} {participants.length === 1 ? "person" : "people"} here
-          </p>
-          <ul className="space-y-2">
-            {participants.map((p) => (
-              <li key={p.userId} className="flex items-center justify-between text-sm">
-                <span>{p.displayName ?? p.userId}</span>
-                <span className="text-xs text-editor-muted">{p.role}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="mt-6 text-sm text-editor-muted">
-          The editor, file explorer, and shared terminal arrive in the next milestones.
-        </p>
-      </div>
+      <EditorWorkspace roomId={roomId} roomToken={getStoredRoomToken(roomId)!} you={you} participants={participants} />
     </div>
   );
 }

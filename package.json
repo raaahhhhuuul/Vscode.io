@@ -17,5 +17,8 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
+  },
+  "overrides": {
+    "dompurify": "^3.4.16"
   }
 }

@@ -3,9 +3,15 @@
 A browser-based, VS Code-style collaborative IDE for student teams. Join a room with a
 rotating team code and code together in real time — no Git required.
 
-> **Status:** M2 done (rooms, rotating team codes, join flow, room-scoped tokens). Editor,
-> terminal, roles, and deployment land in later milestones — see the milestone list in the
-> project plan.
+> **Status:** M3 done (Monaco editor shell, real-time Yjs sync, presence). Roles/permission
+> enforcement, the shared terminal, and deployment land in later milestones.
+>
+> **Known rough edges, called out honestly:** viewer accounts are not yet blocked from editing
+> at the sync-message level (that enforcement is M4 — see Security notes below); the file
+> explorer's rename/delete use plain browser `prompt()`/`confirm()` dialogs rather than custom
+> UI; the production client bundle is large (Monaco isn't code-split yet) — fine for a
+> hackathon tool, worth revisiting before a "real" launch; "IntelliSense" is Monaco's built-in
+> TS/JS/JSON/CSS/HTML smarts, not a general multi-language LSP.
 
 ## Monorepo layout
 
@@ -59,6 +65,26 @@ rotating team code and code together in real time — no Git required.
   session — reloading `/room/:id` without rejoining redirects to `/join`.
 - Hammering `/join` with a wrong code more than ~8 times in a few minutes from the same
   account should start returning "Too many join attempts."
+
+## Testing M3
+
+- Open a room as the owner, create a file from the explorer (`+File`, e.g. `notes.md`), and
+  type in it. Open the same room URL in a second browser/profile as a second user and confirm
+  you see the other person's edits and cursor appear live in the same file, labeled with
+  their color (role enforcement isn't wired up yet — see the security note below).
+- The presence avatar row (top of the editor) should show a green dot for whoever is actually
+  connected right now, independent of the room's full participant list.
+- Create a nested file (e.g. `src/app.ts`), confirm the folder appears automatically; rename
+  and delete both work and show up for the other browser within a few seconds (the file tree
+  polls, it isn't push-updated yet).
+- Reload the page with a file open — its content should come back from the server (it's
+  persisted to disk, debounced ~500ms after you stop typing), not reset to blank.
+- **Security note:** since M4 (role enforcement) hasn't landed yet, every connected
+  participant can currently type in the editor and use the file explorer regardless of role —
+  only `viewer`-role REST calls to create/rename/delete a file are already blocked
+  server-side. Don't treat this build as access-controlled until M4 is done.
+- A quick way to get a second identity to test with locally: sign up a second account via
+  email magic-link in a private browser window.
 
 ## Testing M1
 

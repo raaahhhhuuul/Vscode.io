@@ -9,8 +9,11 @@ import { signRoomToken } from "../services/roomToken.js";
 import { supabaseForUser } from "../lib/supabaseForUser.js";
 import { env } from "../config/env.js";
 import { TEAM_CODE_LENGTH } from "../services/teamCode.js";
+import { ensureRoomWorkspace } from "../services/workspaceFs.js";
+import { filesRouter } from "./files.js";
 
 export const roomsRouter = Router();
+roomsRouter.use("/:roomId/files", filesRouter);
 
 function toRoomSummary(roomId: string, name: string, ownerId: string, createdAtMs: number): RoomSummary {
   return { id: roomId, name, ownerId, createdAt: new Date(createdAtMs).toISOString() };
@@ -48,6 +51,7 @@ roomsRouter.post("/", requireSupabaseAuth, async (req, res) => {
   }
 
   roomStore.createRoom({ roomId, ownerId: user.id, ownerDisplayName: user.displayName, name });
+  await ensureRoomWorkspace(roomId);
   const owner = roomStore.getParticipant(roomId, user.id)!;
   const codeInfo = roomStore.getCurrentCode(roomId)!;
   const roomToken = signRoomToken({ sub: user.id, roomId, tokenId: owner.tokenId });

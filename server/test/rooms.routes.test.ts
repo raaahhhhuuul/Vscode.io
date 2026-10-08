@@ -13,6 +13,12 @@ vi.mock("../src/lib/supabaseForUser.js", () => ({
 
 const { createApp } = await import("../src/app.js");
 const { roomStore } = await import("../src/services/roomStore.js");
+const { deleteRoomWorkspace } = await import("../src/services/workspaceFs.js");
+
+async function closeRoom(roomId: string): Promise<void> {
+  roomStore.closeRoom(roomId);
+  await deleteRoomWorkspace(roomId); // real workspace dir created by POST /api/rooms
+}
 
 // Tokens of the form "token-<userId>" resolve to a fake Supabase user with
 // that id, so each test can stand up as many distinct identities as it needs
@@ -71,7 +77,7 @@ describe("rooms routes", () => {
       .set("Authorization", `Bearer ${viewerToken}`);
     expect(afterKick.status).toBe(401);
 
-    roomStore.closeRoom(room.id);
+    await closeRoom(room.id);
   });
 
   it("rejects a viewer trying to kick someone (not the owner)", async () => {
@@ -93,7 +99,7 @@ describe("rooms routes", () => {
       .send({ userId: "owner-b" });
 
     expect(kickRes.status).toBe(403);
-    roomStore.closeRoom(room.id);
+    await closeRoom(room.id);
   });
 
   it("rejects an invalid or made-up team code", async () => {

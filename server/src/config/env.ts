@@ -24,4 +24,7 @@ export const env = {
   maxRoomsPerUser: Number(process.env.MAX_ROOMS_PER_USER ?? 5),
   maxTotalRooms: Number(process.env.MAX_TOTAL_ROOMS ?? 200),
   maxParticipantsPerRoom: Number(process.env.MAX_PARTICIPANTS_PER_ROOM ?? 12),
+
+  maxFilesPerRoom: Number(process.env.MAX_FILES_PER_ROOM ?? 300),
+  maxFileSizeBytes: Number(process.env.MAX_FILE_SIZE_BYTES ?? 2_000_000),
 };
