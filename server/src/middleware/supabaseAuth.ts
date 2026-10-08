@@ -7,6 +7,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
+      supabaseAccessToken?: string;
     }
   }
 }
@@ -45,6 +46,7 @@ export async function requireSupabaseAuth(req: Request, res: Response, next: Nex
       null,
     avatarUrl: (data.user.user_metadata?.avatar_url as string | undefined) ?? null,
   };
+  req.supabaseAccessToken = token;
   next();
 }
 

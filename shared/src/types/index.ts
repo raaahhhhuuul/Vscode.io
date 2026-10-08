@@ -9,10 +9,45 @@ export interface AuthenticatedUser {
   avatarUrl: string | null;
 }
 
-// Filled in during M2 (rooms) / M3 (editor) / M5 (terminal).
 export interface RoomSummary {
   id: string;
   name: string;
   ownerId: string;
   createdAt: string;
 }
+
+export interface Participant {
+  userId: string;
+  displayName: string | null;
+  role: Role;
+}
+
+export interface CreateRoomResponse {
+  room: RoomSummary;
+  roomToken: string;
+  code: string;
+  rotatesAt: string;
+}
+
+export interface RoomCodeInfo {
+  code: string;
+  rotatesAt: string;
+}
+
+export interface JoinRoomResponse {
+  room: RoomSummary;
+  roomToken: string;
+  role: Role;
+}
+
+export interface RoomStateResponse {
+  room: RoomSummary;
+  you: Participant;
+  participants: Participant[];
+}
+
+export interface RefreshRoomTokenResponse {
+  roomToken: string;
+}
+
+// Filled in during M3 (editor) / M5 (terminal).

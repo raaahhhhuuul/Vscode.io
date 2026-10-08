@@ -13,4 +13,15 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   supabaseUrl: required("SUPABASE_URL"),
   supabaseAnonKey: required("SUPABASE_ANON_KEY"),
+
+  // Signs short-lived room-scoped session tokens (separate from Supabase's
+  // own JWTs — this one encodes room membership, not identity).
+  roomTokenSecret: required("ROOM_TOKEN_SECRET"),
+  roomTokenTtlSeconds: Number(process.env.ROOM_TOKEN_TTL_SECONDS ?? 30 * 60),
+
+  teamCodeRotationMs: Number(process.env.TEAM_CODE_ROTATION_MS ?? 30_000),
+
+  maxRoomsPerUser: Number(process.env.MAX_ROOMS_PER_USER ?? 5),
+  maxTotalRooms: Number(process.env.MAX_TOTAL_ROOMS ?? 200),
+  maxParticipantsPerRoom: Number(process.env.MAX_PARTICIPANTS_PER_ROOM ?? 12),
 };
