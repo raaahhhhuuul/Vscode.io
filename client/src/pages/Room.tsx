@@ -168,7 +168,11 @@ export function Room() {
     );
   }
 
-  if (stage !== "ready" || !room || !you) {
+  // The header — critically, the owner's team code — shows as soon as we
+  // know who "you" are, independent of whether the editor/terminal have
+  // finished connecting. Creating a room is pointless if you have to wait
+  // through the whole bootstrap sequence just to get the code to share.
+  if (!room || !you) {
     return <RoomLoadingScreen stage={stage} />;
   }
 
@@ -205,15 +209,21 @@ export function Room() {
         </div>
       </header>
 
-      <EditorWorkspace
-        roomId={roomId}
-        roomName={room.name}
-        roomToken={getStoredRoomToken(roomId)!}
-        you={you}
-        participants={participants}
-        onParticipantsChanged={refreshState}
-        onRoomClosed={handleRoomClosed}
-      />
+      {stage !== "ready" ? (
+        <div className="h-[calc(100vh-56px)]">
+          <RoomLoadingScreen stage={stage} fullScreen={false} />
+        </div>
+      ) : (
+        <EditorWorkspace
+          roomId={roomId}
+          roomName={room.name}
+          roomToken={getStoredRoomToken(roomId)!}
+          you={you}
+          participants={participants}
+          onParticipantsChanged={refreshState}
+          onRoomClosed={handleRoomClosed}
+        />
+      )}
     </div>
   );
 }

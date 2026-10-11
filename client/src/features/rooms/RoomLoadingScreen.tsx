@@ -14,20 +14,27 @@ function statusFor(stepIndex: number, currentIndex: number): "done" | "active" |
 
 interface RoomLoadingScreenProps {
   stage: RoomBootstrapStage;
+  /** false when nested under a header that's already shown (e.g. the team
+   * code is already visible) — fills its container instead of the viewport. */
+  fullScreen?: boolean;
 }
 
 /**
  * Each step lights up only when the real underlying call it represents
  * actually resolves (see Room.tsx) — there is no setTimeout driving this.
  */
-export function RoomLoadingScreen({ stage }: RoomLoadingScreenProps) {
+export function RoomLoadingScreen({ stage, fullScreen = true }: RoomLoadingScreenProps) {
   const currentIndex = STEPS.findIndex((s) => s.key === stage);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-editor-bg px-4">
-      <div className="text-lg font-semibold text-editor-heading">
-        Sync<span className="text-editor-accent">Code</span>
-      </div>
+    <div
+      className={`flex ${fullScreen ? "min-h-screen" : "h-full"} flex-col items-center justify-center gap-8 bg-editor-bg px-4`}
+    >
+      {fullScreen && (
+        <div className="text-lg font-semibold text-editor-heading">
+          Sync<span className="text-editor-accent">Code</span>
+        </div>
+      )}
       <ul className="w-full max-w-xs space-y-4">
         {STEPS.map((step, i) => {
           const status = statusFor(i, currentIndex);
