@@ -11,6 +11,8 @@ import { env } from "../config/env.js";
 import { TEAM_CODE_LENGTH } from "../services/teamCode.js";
 import { ensureRoomWorkspace } from "../services/workspaceFs.js";
 import { filesRouter } from "./files.js";
+import { closeConnectionsFor } from "../ws/connectionRegistry.js";
+import { clearEditRequest, listEditRequests, requestEdit } from "../ws/editRequests.js";
 
 export const roomsRouter = Router();
 roomsRouter.use("/:roomId/files", filesRouter);
@@ -157,6 +159,8 @@ roomsRouter.post("/:roomId/refresh-token", requireRoomToken, (req, res) => {
 roomsRouter.post("/:roomId/leave", requireRoomToken, (req, res) => {
   const auth = req.roomAuth!;
   roomStore.leave(auth.roomId, auth.userId);
+  clearEditRequest(auth.roomId, auth.userId);
+  closeConnectionsFor(auth.roomId, auth.userId);
   res.status(204).send();
 });
 
@@ -178,6 +182,84 @@ roomsRouter.post("/:roomId/kick", requireRoomToken, (req, res) => {
 
   const removed = roomStore.kick(auth.roomId, targetUserId);
   if (!removed) {
+    res.status(404).json({ error: "Participant not found" });
+    return;
+  }
+  clearEditRequest(auth.roomId, targetUserId);
+  closeConnectionsFor(auth.roomId, targetUserId);
+  res.json({ ok: true });
+});
+
+const requestEditLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.roomAuth?.userId ?? "anonymous",
+  message: { error: "Too many requests — try again shortly" },
+});
+
+roomsRouter.post("/:roomId/request-edit", requireRoomToken, requestEditLimiter, (req, res) => {
+  const auth = req.roomAuth!;
+  if (auth.role !== "viewer") {
+    res.status(400).json({ error: "You already have edit access" });
+    return;
+  }
+  const participant = roomStore.getParticipant(auth.roomId, auth.userId)!;
+  requestEdit(auth.roomId, auth.userId, participant.displayName);
+  res.json({ ok: true });
+});
+
+roomsRouter.get("/:roomId/edit-requests", requireRoomToken, (req, res) => {
+  const auth = req.roomAuth!;
+  if (auth.role !== "owner") {
+    res.status(403).json({ error: "Only the room owner can view edit requests" });
+    return;
+  }
+  res.json({ requests: listEditRequests(auth.roomId) });
+});
+
+roomsRouter.post("/:roomId/edit-requests/respond", requireRoomToken, (req, res) => {
+  const auth = req.roomAuth!;
+  if (auth.role !== "owner") {
+    res.status(403).json({ error: "Only the room owner can respond to edit requests" });
+    return;
+  }
+  const body = req.body as { userId?: unknown; approve?: unknown } | undefined;
+  if (typeof body?.userId !== "string" || typeof body?.approve !== "boolean") {
+    res.status(400).json({ error: "Expected { userId: string, approve: boolean }" });
+    return;
+  }
+
+  clearEditRequest(auth.roomId, body.userId);
+  if (body.approve) {
+    const ok = roomStore.setRole(auth.roomId, body.userId, "editor");
+    if (!ok) {
+      res.status(404).json({ error: "Participant not found" });
+      return;
+    }
+  }
+  res.json({ ok: true });
+});
+
+roomsRouter.post("/:roomId/role", requireRoomToken, (req, res) => {
+  const auth = req.roomAuth!;
+  if (auth.role !== "owner") {
+    res.status(403).json({ error: "Only the room owner can change roles" });
+    return;
+  }
+  const body = req.body as { userId?: unknown; role?: unknown } | undefined;
+  if (typeof body?.userId !== "string" || (body.role !== "editor" && body.role !== "viewer")) {
+    res.status(400).json({ error: "Expected { userId: string, role: 'editor' | 'viewer' }" });
+    return;
+  }
+  if (body.userId === auth.userId) {
+    res.status(400).json({ error: "The owner's role can't be changed" });
+    return;
+  }
+
+  const ok = roomStore.setRole(auth.roomId, body.userId, body.role);
+  if (!ok) {
     res.status(404).json({ error: "Participant not found" });
     return;
   }

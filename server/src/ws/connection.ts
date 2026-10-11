@@ -31,6 +31,14 @@ function broadcast(entry: RoomDocEntry, message: Uint8Array, exclude: unknown): 
 export interface BindOptions {
   /** Fired after a doc-changing message is applied — hook for debounced persistence. */
   onDocUpdate?: () => void;
+  /**
+   * Checked on every incoming sync message that would mutate the doc
+   * (sync-step2 and update — never sync-step1, which is read-only and must
+   * never be blocked). Omit to allow writes unconditionally (used for the
+   * presence doc, which isn't role-gated). Re-invoked per message, not
+   * cached, so a live role change/kick takes effect without reconnecting.
+   */
+  canWrite?: () => boolean;
 }
 
 export function bindYjsConnection(conn: WebSocket, entry: RoomDocEntry, options: BindOptions = {}): void {
@@ -100,11 +108,31 @@ export function bindYjsConnection(conn: WebSocket, entry: RoomDocEntry, options:
       const messageType = decoding.readVarUint(decoder);
 
       if (messageType === MESSAGE_SYNC) {
+        // Dispatched by hand (rather than the combined syncProtocol.readSyncMessage)
+        // so step2/update — the two sub-types that actually mutate the doc —
+        // can be gated by canWrite() while step1 (read-only: "here's what I
+        // have, tell me what I'm missing") always goes through. A dropped
+        // write gets no error reply; the client simply never sees its change
+        // echoed back or broadcast to anyone else.
+        const syncMessageType = decoding.readVarUint(decoder);
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
-        syncProtocol.readSyncMessage(decoder, encoder, entry.doc, conn);
+
+        if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
+          syncProtocol.readSyncStep1(decoder, encoder, entry.doc);
+        } else if (
+          (syncMessageType === syncProtocol.messageYjsSyncStep2 || syncMessageType === syncProtocol.messageYjsUpdate) &&
+          (options.canWrite?.() ?? true)
+        ) {
+          if (syncMessageType === syncProtocol.messageYjsSyncStep2) {
+            syncProtocol.readSyncStep2(decoder, entry.doc, conn);
+          } else {
+            syncProtocol.readUpdate(decoder, entry.doc, conn);
+          }
+          options.onDocUpdate?.();
+        }
+
         if (encoding.length(encoder) > 1) send(conn, encoding.toUint8Array(encoder));
-        options.onDocUpdate?.();
       } else if (messageType === MESSAGE_AWARENESS) {
         awarenessProtocol.applyAwarenessUpdate(entry.awareness, decoding.readVarUint8Array(decoder), conn);
       }

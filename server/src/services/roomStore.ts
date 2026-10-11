@@ -43,6 +43,9 @@ export interface RoomStore {
   join(input: { roomId: string; userId: string; displayName: string | null }): JoinResult;
   leave(roomId: string, userId: string): void;
   kick(roomId: string, targetUserId: string): boolean;
+  /** Sets a participant's role to editor/viewer. Returns false for an unknown participant,
+   * the room's owner (whose role is fixed), or an attempt to grant "owner". */
+  setRole(roomId: string, userId: string, role: "editor" | "viewer"): boolean;
   getParticipant(roomId: string, userId: string): Participant | null;
   listParticipants(roomId: string): Participant[];
   isTokenValid(roomId: string, userId: string, tokenId: string): boolean;
@@ -162,6 +165,15 @@ export class InMemoryRoomStore implements RoomStore {
     const state = this.rooms.get(roomId);
     if (!state) return false;
     return state.participants.delete(targetUserId);
+  }
+
+  setRole(roomId: string, userId: string, role: "editor" | "viewer"): boolean {
+    const state = this.rooms.get(roomId);
+    if (!state || userId === state.ownerId) return false;
+    const participant = state.participants.get(userId);
+    if (!participant) return false;
+    participant.role = role;
+    return true;
   }
 
   getParticipant(roomId: string, userId: string): Participant | null {

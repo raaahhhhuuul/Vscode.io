@@ -8,9 +8,17 @@ import { EditorTabs } from "./EditorTabs";
 import { StatusBar } from "./StatusBar";
 import { PresenceAvatars } from "./PresenceAvatars";
 import { MonacoFileEditor } from "./MonacoFileEditor";
+import { EditRequestsBanner } from "./EditRequestsBanner";
+import { ManageAccessPanel } from "./ManageAccessPanel";
 import { useRoomPresence } from "./useRoomPresence";
 import { roomWsBase } from "./wsUrl";
 import { colorForUserId } from "./colors";
+import {
+  kickParticipant,
+  requestEditAccess,
+  respondToEditRequest,
+  setParticipantRole,
+} from "../rooms/api";
 
 interface OpenFileEntry {
   doc: Y.Doc;
@@ -22,17 +30,58 @@ interface EditorWorkspaceProps {
   roomToken: string;
   you: { userId: string; displayName: string | null; role: Role };
   participants: Participant[];
+  onParticipantsChanged: () => void;
 }
 
-export function EditorWorkspace({ roomId, roomToken, you, participants }: EditorWorkspaceProps) {
+export function EditorWorkspace({
+  roomId,
+  roomToken,
+  you,
+  participants,
+  onParticipantsChanged,
+}: EditorWorkspaceProps) {
   const [openPaths, setOpenPaths] = useState<string[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const filesRef = useRef(new Map<string, OpenFileEntry>());
   const [, forceRender] = useState(0);
+  const [requestSent, setRequestSent] = useState(false);
+  const [showManagePanel, setShowManagePanel] = useState(false);
 
-  const liveUserIds = useRoomPresence(roomId, roomToken, { userId: you.userId, displayName: you.displayName });
+  const { liveUserIds, editRequests } = useRoomPresence(roomId, roomToken, {
+    userId: you.userId,
+    displayName: you.displayName,
+  });
   const canEdit = you.role !== "viewer";
+  const isOwner = you.role === "owner";
+
+  async function handleRequestEdit() {
+    setRequestSent(true);
+    try {
+      await requestEditAccess(roomId, roomToken);
+    } catch {
+      setRequestSent(false);
+    }
+  }
+
+  async function handleApproveRequest(userId: string) {
+    await respondToEditRequest(roomId, roomToken, userId, true).catch(() => {});
+    onParticipantsChanged();
+  }
+
+  async function handleDenyRequest(userId: string) {
+    await respondToEditRequest(roomId, roomToken, userId, false).catch(() => {});
+  }
+
+  async function handleChangeRole(userId: string, role: "editor" | "viewer") {
+    await setParticipantRole(roomId, roomToken, userId, role).catch(() => {});
+    onParticipantsChanged();
+  }
+
+  async function handleKick(userId: string) {
+    await kickParticipant(roomId, roomToken, userId).catch(() => {});
+    onParticipantsChanged();
+  }
 
   function openFile(path: string) {
     if (!filesRef.current.has(path)) {
@@ -82,13 +131,43 @@ export function EditorWorkspace({ roomId, roomToken, you, participants }: Editor
   const activeEntry = activePath ? filesRef.current.get(activePath) : undefined;
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col">
+    <div className="relative flex h-[calc(100vh-56px)] flex-col">
+      {isOwner && (
+        <EditRequestsBanner requests={editRequests} onApprove={handleApproveRequest} onDeny={handleDenyRequest} />
+      )}
       <div className="flex items-center justify-between border-b border-editor-border bg-editor-sidebar py-1">
-        <span className="px-3 text-xs text-editor-muted">
-          {canEdit ? "You can edit this workspace" : "Read-only — request edit access from the owner"}
-        </span>
-        <PresenceAvatars participants={participants} liveUserIds={liveUserIds} />
+        {canEdit ? (
+          <span className="px-3 text-xs text-editor-muted">You can edit this workspace</span>
+        ) : (
+          <button
+            onClick={handleRequestEdit}
+            disabled={requestSent}
+            className="px-3 text-xs text-editor-accent hover:underline disabled:text-editor-muted disabled:no-underline"
+          >
+            {requestSent ? "Edit access requested — waiting for the owner" : "Read-only — request edit access"}
+          </button>
+        )}
+        <div className="flex items-center gap-3">
+          <PresenceAvatars participants={participants} liveUserIds={liveUserIds} />
+          {isOwner && (
+            <button
+              onClick={() => setShowManagePanel((v) => !v)}
+              className="px-3 text-xs text-editor-muted hover:text-white"
+            >
+              Manage access
+            </button>
+          )}
+        </div>
       </div>
+      {showManagePanel && (
+        <ManageAccessPanel
+          participants={participants}
+          ownerId={you.role === "owner" ? you.userId : participants.find((p) => p.role === "owner")?.userId ?? ""}
+          onChangeRole={handleChangeRole}
+          onKick={handleKick}
+          onClose={() => setShowManagePanel(false)}
+        />
+      )}
       <div className="flex min-h-0 flex-1">
         <ActivityBar />
         <FileExplorer

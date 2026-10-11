@@ -29,45 +29,42 @@ export function Room() {
     [roomId, navigate],
   );
 
-  useEffect(() => {
+  const refreshState = useCallback(async () => {
     const token = getStoredRoomToken(roomId);
-    if (!token) {
+    if (!token) return;
+    try {
+      const state = await fetchRoomState(roomId, token);
+      setRoom(state.room);
+      setYou(state.you);
+      setParticipants(state.participants);
+    } catch {
+      bail("This room session has ended. Rejoin with the current code.");
+    }
+  }, [roomId, bail]);
+
+  useEffect(() => {
+    if (!getStoredRoomToken(roomId)) {
       navigate("/join");
       return;
     }
 
-    let cancelled = false;
-
-    async function loadState() {
-      try {
-        const state = await fetchRoomState(roomId, token!);
-        if (cancelled) return;
-        setRoom(state.room);
-        setYou(state.you);
-        setParticipants(state.participants);
-      } catch {
-        if (!cancelled) bail("This room session has ended. Rejoin with the current code.");
-      }
-    }
-
-    loadState();
-    const stateInterval = setInterval(loadState, CODE_POLL_MS);
+    refreshState();
+    const stateInterval = setInterval(refreshState, CODE_POLL_MS);
 
     const refreshInterval = setInterval(async () => {
       try {
         const { roomToken } = await refreshRoomToken(roomId, getStoredRoomToken(roomId)!);
         setStoredRoomToken(roomId, roomToken);
       } catch {
-        // Next loadState() tick will notice the session is gone and redirect.
+        // Next refreshState() tick will notice the session is gone and redirect.
       }
     }, TOKEN_REFRESH_MS);
 
     return () => {
-      cancelled = true;
       clearInterval(stateInterval);
       clearInterval(refreshInterval);
     };
-  }, [roomId, navigate, bail]);
+  }, [roomId, navigate, refreshState]);
 
   useEffect(() => {
     if (you?.role !== "owner") return;
@@ -152,7 +149,13 @@ export function Room() {
         </div>
       </header>
 
-      <EditorWorkspace roomId={roomId} roomToken={getStoredRoomToken(roomId)!} you={you} participants={participants} />
+      <EditorWorkspace
+        roomId={roomId}
+        roomToken={getStoredRoomToken(roomId)!}
+        you={you}
+        participants={participants}
+        onParticipantsChanged={refreshState}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { roomStore } from "../services/roomStore.js";
 import { resolveSafePath, readFileSafe, writeFileSafe, PathTraversalError } from "../services/workspaceFs.js";
 import { getOrCreateRoomDoc } from "./yjsRoomDocs.js";
 import { bindYjsConnection } from "./connection.js";
+import { registerConnection } from "./connectionRegistry.js";
 
 interface ParsedDescriptor {
   docName: string;
@@ -109,10 +110,19 @@ export function createYjsWebSocketServer() {
       const entry = getOrCreateRoomDoc(parsed.docName);
       const isNewFileDoc = parsed.kind === "file" && entry.conns.size === 0 && !entry.persistenceBound;
 
+      registerConnection(parsed.roomId, payload.sub, ws);
+
       bindYjsConnection(ws, entry, {
         onDocUpdate:
           parsed.kind === "file"
             ? createDebouncedPersist(parsed.roomId, parsed.filePath!, () => entry.doc.getText("content").toString())
+            : undefined,
+        canWrite:
+          parsed.kind === "file"
+            ? () => {
+                const role = roomStore.getParticipant(parsed.roomId, payload.sub)?.role;
+                return role === "owner" || role === "editor";
+              }
             : undefined,
       });
 

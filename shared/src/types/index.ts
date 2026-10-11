@@ -50,4 +50,10 @@ export interface RefreshRoomTokenResponse {
   roomToken: string;
 }
 
-// Filled in during M3 (editor) / M5 (terminal).
+export interface EditRequest {
+  userId: string;
+  displayName: string | null;
+  requestedAtMs: number;
+}
+
+// Filled in during M5 (terminal).

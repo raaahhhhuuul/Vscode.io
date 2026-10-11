@@ -83,3 +83,39 @@ export async function kickParticipant(roomId: string, roomToken: string, userId:
   });
   await parseJsonOrThrow(res);
 }
+
+export async function requestEditAccess(roomId: string, roomToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/rooms/${roomId}/request-edit`, {
+    method: "POST",
+    headers: roomAuthHeader(roomToken),
+  });
+  await parseJsonOrThrow(res);
+}
+
+export async function respondToEditRequest(
+  roomId: string,
+  roomToken: string,
+  userId: string,
+  approve: boolean,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/rooms/${roomId}/edit-requests/respond`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...roomAuthHeader(roomToken) },
+    body: JSON.stringify({ userId, approve }),
+  });
+  await parseJsonOrThrow(res);
+}
+
+export async function setParticipantRole(
+  roomId: string,
+  roomToken: string,
+  userId: string,
+  role: "editor" | "viewer",
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/rooms/${roomId}/role`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...roomAuthHeader(roomToken) },
+    body: JSON.stringify({ userId, role }),
+  });
+  await parseJsonOrThrow(res);
+}

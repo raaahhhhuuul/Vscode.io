@@ -3,15 +3,14 @@
 A browser-based, VS Code-style collaborative IDE for student teams. Join a room with a
 rotating team code and code together in real time — no Git required.
 
-> **Status:** M3 done (Monaco editor shell, real-time Yjs sync, presence). Roles/permission
-> enforcement, the shared terminal, and deployment land in later milestones.
+> **Status:** M4 done (roles and permissions, enforced server-side). The shared terminal and
+> deployment land in later milestones.
 >
-> **Known rough edges, called out honestly:** viewer accounts are not yet blocked from editing
-> at the sync-message level (that enforcement is M4 — see Security notes below); the file
-> explorer's rename/delete use plain browser `prompt()`/`confirm()` dialogs rather than custom
-> UI; the production client bundle is large (Monaco isn't code-split yet) — fine for a
-> hackathon tool, worth revisiting before a "real" launch; "IntelliSense" is Monaco's built-in
-> TS/JS/JSON/CSS/HTML smarts, not a general multi-language LSP.
+> **Known rough edges, called out honestly:** the file explorer's rename/delete use plain
+> browser `prompt()`/`confirm()` dialogs rather than custom UI; the production client bundle
+> is large (Monaco isn't code-split yet) — fine for a hackathon tool, worth revisiting before a
+> "real" launch; "IntelliSense" is Monaco's built-in TS/JS/JSON/CSS/HTML smarts, not a general
+> multi-language LSP; the file tree is REST-polled every few seconds rather than pushed live.
 
 ## Monorepo layout
 
@@ -61,17 +60,17 @@ rotating team code and code together in real time — no Git required.
 - Wait 30+ seconds and copy the code again — it should have changed. A code copied just before
   rotation should still work for a few seconds after (the grace window), but a code from two
   rotations ago should be rejected.
-- Leaving a room (or being kicked, once M4 adds that UI) invalidates that browser's room
-  session — reloading `/room/:id` without rejoining redirects to `/join`.
+- Leaving a room (or being kicked — see M4 below) invalidates that browser's room session —
+  reloading `/room/:id` without rejoining redirects to `/join`.
 - Hammering `/join` with a wrong code more than ~8 times in a few minutes from the same
   account should start returning "Too many join attempts."
 
 ## Testing M3
 
 - Open a room as the owner, create a file from the explorer (`+File`, e.g. `notes.md`), and
-  type in it. Open the same room URL in a second browser/profile as a second user and confirm
-  you see the other person's edits and cursor appear live in the same file, labeled with
-  their color (role enforcement isn't wired up yet — see the security note below).
+  type in it. Open the same room URL in a second browser/profile as a second user (an editor,
+  or an approved viewer — see M4 below) and confirm you see the other person's edits and
+  cursor appear live in the same file, labeled with their color.
 - The presence avatar row (top of the editor) should show a green dot for whoever is actually
   connected right now, independent of the room's full participant list.
 - Create a nested file (e.g. `src/app.ts`), confirm the folder appears automatically; rename
@@ -79,12 +78,32 @@ rotating team code and code together in real time — no Git required.
   polls, it isn't push-updated yet).
 - Reload the page with a file open — its content should come back from the server (it's
   persisted to disk, debounced ~500ms after you stop typing), not reset to blank.
-- **Security note:** since M4 (role enforcement) hasn't landed yet, every connected
-  participant can currently type in the editor and use the file explorer regardless of role —
-  only `viewer`-role REST calls to create/rename/delete a file are already blocked
-  server-side. Don't treat this build as access-controlled until M4 is done.
 - A quick way to get a second identity to test with locally: sign up a second account via
   email magic-link in a private browser window.
+
+## Testing M4
+
+- Join a room as a second account (viewer by default). Monaco should be read-only for them,
+  and clicking **"Read-only — request edit access"** (top bar) sends a request.
+- As the owner, a banner should appear ("X is requesting edit access") within a second or two
+  — this is pushed live over the same WebSocket used for presence, not polled. Approve it: the
+  viewer's editor should flip to editable within ~5s (the next room-state poll), **without
+  them reloading or rejoining**.
+- Open **"Manage access"** (owner only, top-right) to see every participant with a role
+  dropdown and a Kick button. Changing someone's role or kicking them takes effect
+  immediately for the owner's view; the affected user notices within the next poll/WS message.
+- Kicking someone force-closes their open editor/presence WebSocket connections immediately
+  (not just their next REST call) — they're booted out, not just locked to read-only.
+- **Enforcement is server-side, not just hidden buttons:** a viewer's Yjs edits are dropped at
+  the WebSocket layer before they're ever applied to the shared document or broadcast to
+  anyone else — confirmed with both a unit test (`roleEnforcement.test.ts`, feeding crafted
+  protocol messages into the real connection handler) and a live two-client smoke test against
+  the running server (not committed, but it's what caught a real bug: y-websocket's cross-tab
+  BroadcastChannel optimization will silently bypass the server entirely if you test two
+  clients in the same process/tab without `disableBc: true` — worth knowing if you write
+  similar tests later).
+- Cursor/selection broadcasting and seeing others' presence are **not** treated as mutations —
+  a viewer's cursor still shows up for everyone, only content edits are blocked.
 
 ## Testing M1
 
