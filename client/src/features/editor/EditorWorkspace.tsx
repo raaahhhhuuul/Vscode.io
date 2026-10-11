@@ -10,6 +10,7 @@ import { PresenceAvatars } from "./PresenceAvatars";
 import { MonacoFileEditor } from "./MonacoFileEditor";
 import { EditRequestsBanner } from "./EditRequestsBanner";
 import { ManageAccessPanel } from "./ManageAccessPanel";
+import { TerminalPanel } from "../terminal/TerminalPanel";
 import { useRoomPresence } from "./useRoomPresence";
 import { roomWsBase } from "./wsUrl";
 import { colorForUserId } from "./colors";
@@ -47,6 +48,7 @@ export function EditorWorkspace({
   const [, forceRender] = useState(0);
   const [requestSent, setRequestSent] = useState(false);
   const [showManagePanel, setShowManagePanel] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(true);
 
   const { liveUserIds, editRequests } = useRoomPresence(roomId, roomToken, {
     userId: you.userId,
@@ -149,6 +151,12 @@ export function EditorWorkspace({
         )}
         <div className="flex items-center gap-3">
           <PresenceAvatars participants={participants} liveUserIds={liveUserIds} />
+          <button
+            onClick={() => setShowTerminal((v) => !v)}
+            className="px-3 text-xs text-editor-muted hover:text-white"
+          >
+            {showTerminal ? "Hide terminal" : "Show terminal"}
+          </button>
           {isOwner && (
             <button
               onClick={() => setShowManagePanel((v) => !v)}
@@ -168,34 +176,41 @@ export function EditorWorkspace({
           onClose={() => setShowManagePanel(false)}
         />
       )}
-      <div className="flex min-h-0 flex-1">
-        <ActivityBar />
-        <FileExplorer
-          roomId={roomId}
-          roomToken={roomToken}
-          canEdit={canEdit}
-          activePath={activePath}
-          onOpenFile={openFile}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <EditorTabs openPaths={openPaths} activePath={activePath} onSelect={setActivePath} onClose={closeTab} />
-          <div className="min-h-0 flex-1">
-            {activePath && activeEntry ? (
-              <MonacoFileEditor
-                key={activePath}
-                path={activePath}
-                doc={activeEntry.doc}
-                provider={activeEntry.provider}
-                readOnly={!canEdit}
-                onCursorMove={(line, column) => setCursor({ line, column })}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-editor-muted">
-                Open a file from the explorer to start editing.
-              </div>
-            )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <ActivityBar />
+          <FileExplorer
+            roomId={roomId}
+            roomToken={roomToken}
+            canEdit={canEdit}
+            activePath={activePath}
+            onOpenFile={openFile}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <EditorTabs openPaths={openPaths} activePath={activePath} onSelect={setActivePath} onClose={closeTab} />
+            <div className="min-h-0 flex-1">
+              {activePath && activeEntry ? (
+                <MonacoFileEditor
+                  key={activePath}
+                  path={activePath}
+                  doc={activeEntry.doc}
+                  provider={activeEntry.provider}
+                  readOnly={!canEdit}
+                  onCursorMove={(line, column) => setCursor({ line, column })}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-editor-muted">
+                  Open a file from the explorer to start editing.
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        {showTerminal && (
+          <div className="h-64 shrink-0 border-t border-editor-border">
+            <TerminalPanel roomId={roomId} roomToken={roomToken} canWrite={canEdit} />
+          </div>
+        )}
       </div>
       <StatusBar
         activePath={activePath}

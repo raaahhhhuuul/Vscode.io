@@ -13,8 +13,8 @@ describe("InMemoryRoomStore", () => {
     store.createRoom({ roomId, ownerId: "owner-1", ownerDisplayName: "Owner", name: "Test room" });
   });
 
-  afterEach(() => {
-    store.closeRoom(roomId);
+  afterEach(async () => {
+    await store.closeRoom(roomId);
     vi.useRealTimers();
   });
 

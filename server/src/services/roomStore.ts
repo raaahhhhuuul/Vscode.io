@@ -49,7 +49,14 @@ export interface RoomStore {
   getParticipant(roomId: string, userId: string): Participant | null;
   listParticipants(roomId: string): Participant[];
   isTokenValid(roomId: string, userId: string, tokenId: string): boolean;
-  closeRoom(roomId: string): void;
+  /** Awaits every onRoomClosing listener (so e.g. the terminal process has
+   * actually exited) before deleting the room's state. Safe to follow with
+   * deleting the room's workspace directory. */
+  closeRoom(roomId: string): Promise<void>;
+  /** Registers a callback invoked right before a room's state is deleted, so
+   * other modules (Yjs docs, the terminal) can clean up without roomStore
+   * needing to import them directly. May return a promise; closeRoom awaits it. */
+  onRoomClosing(callback: (roomId: string) => void | Promise<void>): void;
 }
 
 interface RoomState extends RoomRuntime {
@@ -63,6 +70,11 @@ interface RoomState extends RoomRuntime {
 export class InMemoryRoomStore implements RoomStore {
   private rooms = new Map<string, RoomState>();
   private codeIndex = new Map<string, string>(); // code -> roomId, for both current and previous
+  private closingListeners: Array<(roomId: string) => void | Promise<void>> = [];
+
+  onRoomClosing(callback: (roomId: string) => void | Promise<void>): void {
+    this.closingListeners.push(callback);
+  }
 
   createRoom(input: {
     roomId: string;
@@ -190,9 +202,10 @@ export class InMemoryRoomStore implements RoomStore {
     return participant !== null && participant.tokenId === tokenId;
   }
 
-  closeRoom(roomId: string): void {
+  async closeRoom(roomId: string): Promise<void> {
     const state = this.rooms.get(roomId);
     if (!state) return;
+    await Promise.all(this.closingListeners.map((listener) => listener(roomId)));
     clearInterval(state.rotationTimer);
     if (state.previousCode) this.codeIndex.delete(state.previousCode);
     this.codeIndex.delete(state.currentCode);

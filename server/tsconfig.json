@@ -11,7 +11,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    // Without this, TS's default typeRoots search walks up past the repo
+    // looking for node_modules/@types — on at least one dev machine that
+    // reached a stray global node_modules in the user's home directory and
+    // pulled in unrelated browser-ish ambient types, silently changing how
+    // builtins like setInterval resolve. Pinning it keeps the project's
+    // types self-contained regardless of what's installed elsewhere on disk.
+    "typeRoots": ["../node_modules/@types", "./node_modules/@types"]
   },
   "include": ["src"]
 }

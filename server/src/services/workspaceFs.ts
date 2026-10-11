@@ -49,6 +49,12 @@ export function resolveSafePath(roomId: string, relPath: string): string {
   return target;
 }
 
+/** Public accessor for other modules (e.g. the terminal) that need the
+ * room's real workspace path but don't do file operations within it. */
+export function getRoomWorkspacePath(roomId: string): string {
+  return roomDir(roomId);
+}
+
 export async function ensureRoomWorkspace(roomId: string): Promise<void> {
   const dir = roomDir(roomId);
   await fs.mkdir(dir, { recursive: true });

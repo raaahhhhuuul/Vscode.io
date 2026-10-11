@@ -56,4 +56,13 @@ export interface EditRequest {
   requestedAtMs: number;
 }
 
-// Filled in during M5 (terminal).
+// Terminal WS protocol (JSON, not Yjs's binary protocol — throughput here
+// doesn't need lib0's efficiency and JSON is easier to get right).
+export type TerminalClientMessage =
+  | { type: "input"; data: string }
+  | { type: "resize"; cols: number; rows: number };
+
+export type TerminalServerMessage =
+  | { type: "output"; data: string }
+  | { type: "exit"; code: number }
+  | { type: "denied" };

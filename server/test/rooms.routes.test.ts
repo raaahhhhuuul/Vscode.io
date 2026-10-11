@@ -16,7 +16,7 @@ const { roomStore } = await import("../src/services/roomStore.js");
 const { deleteRoomWorkspace } = await import("../src/services/workspaceFs.js");
 
 async function closeRoom(roomId: string): Promise<void> {
-  roomStore.closeRoom(roomId);
+  await roomStore.closeRoom(roomId);
   await deleteRoomWorkspace(roomId); // real workspace dir created by POST /api/rooms
 }
 

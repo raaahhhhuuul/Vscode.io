@@ -79,7 +79,7 @@ describe("role management routes", () => {
       .set("Authorization", `Bearer ${ownerRoomToken}`);
     expect(listAfter.body.requests).toHaveLength(0);
 
-    roomStore.closeRoom(room.id);
+    await roomStore.closeRoom(room.id);
     await deleteRoomWorkspace(room.id);
   });
 
@@ -115,7 +115,7 @@ describe("role management routes", () => {
       .send({ userId: "owner-c2", role: "viewer" });
     expect(selfRes.status).toBe(400);
 
-    roomStore.closeRoom(room.id);
+    await roomStore.closeRoom(room.id);
     await deleteRoomWorkspace(room.id);
   });
 
@@ -127,7 +127,7 @@ describe("role management routes", () => {
       .set("Authorization", `Bearer ${ownerRoomToken}`);
     expect(res.status).toBe(400);
 
-    roomStore.closeRoom(room.id);
+    await roomStore.closeRoom(room.id);
     await deleteRoomWorkspace(room.id);
   });
 });

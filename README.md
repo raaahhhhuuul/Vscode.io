@@ -3,14 +3,19 @@
 A browser-based, VS Code-style collaborative IDE for student teams. Join a room with a
 rotating team code and code together in real time — no Git required.
 
-> **Status:** M4 done (roles and permissions, enforced server-side). The shared terminal and
-> deployment land in later milestones.
+> **Status:** M5 done (shared terminal, with safety limits). Deployment (Dockerfile, hosting
+> guide) lands in M7.
 >
 > **Known rough edges, called out honestly:** the file explorer's rename/delete use plain
 > browser `prompt()`/`confirm()` dialogs rather than custom UI; the production client bundle
 > is large (Monaco isn't code-split yet) — fine for a hackathon tool, worth revisiting before a
 > "real" launch; "IntelliSense" is Monaco's built-in TS/JS/JSON/CSS/HTML smarts, not a general
 > multi-language LSP; the file tree is REST-polled every few seconds rather than pushed live.
+>
+> **Terminal risk, stated plainly:** the shared terminal runs real shell commands
+> (`npm install`, `python`, arbitrary scripts) on the server, in a room's workspace directory.
+> That is inherently risky on a shared host — see "Terminal safety" under M5 below for exactly
+> what's mitigated today versus what still depends on the Linux container built in M7.
 
 ## Monorepo layout
 
@@ -104,6 +109,49 @@ rotating team code and code together in real time — no Git required.
   similar tests later).
 - Cursor/selection broadcasting and seeing others' presence are **not** treated as mutations —
   a viewer's cursor still shows up for everyone, only content edits are blocked.
+
+## Testing M5
+
+- Open a room, toggle the terminal open (top bar, **"Hide/Show terminal"** — visible to
+  everyone), and as the owner run a real command: `node -v`, `echo hello`, or (if the tools
+  exist on whatever machine runs the server) `npm install` / `python --version`. Output
+  streams live over its own WebSocket, separate from the editor's.
+- Open the same room as a second (viewer) account: they should see the **same shared
+  terminal's output** (it's one pty per room, not one per person) but typing does nothing —
+  the panel shows "Read-only" and keystrokes never reach the shell, even from a tampered
+  client (enforced the same way as M4: a live `canWrite()` check per message, not a hidden
+  input box).
+- Reload the page with the terminal open: prior output (scrollback) replays so you're not
+  staring at a blank panel — it isn't re-running anything, just replaying what already
+  happened.
+- Idle timeout is set to 2 minutes in the local `.env` (intentionally short for testing — use
+  something like 20 minutes in production). Leave a room's terminal untouched that long and
+  the next command fails/the pty exits; reopening the panel starts a fresh shell.
+
+### Terminal safety — what's actually enforced, and where
+
+- **Environment scrubbing (verified):** the pty's environment is a from-scratch allow-list
+  (`PATH`, a scoped `HOME`/`TEMP` inside the room's own workspace, `TERM`, etc.) — never a
+  filtered copy of `process.env`. `SUPABASE_*`, `ROOM_TOKEN_SECRET`, and everything else the
+  server holds are structurally absent, not just unset.
+- **Role enforcement (verified):** covered by `terminalEnforcement.test.ts` (feeds real
+  protocol messages into the connection handler) and a live smoke test against the running
+  server — a viewer's `input`/`resize` messages never reach the shell.
+- **Idle timeout (verified):** a periodic sweep kills any room's pty past
+  `TERMINAL_IDLE_TIMEOUT_MS` of no input/output activity.
+- **Non-root execution, ulimit-based CPU/memory/process caps:** implemented (POSIX branch of
+  `terminalManager.ts` wraps the shell in `ulimit -v/-u/-t` before exec'ing it, and will drop
+  to `TERMINAL_UID`/`TERMINAL_GID` if set), but **this dev machine is Windows, which has
+  neither concept** — so this code path has only been typechecked and reasoned through, not
+  run for real. It needs verification on the Linux container built in M7, where it actually
+  matters. Said plainly rather than claimed as tested.
+- **Running arbitrary shell commands on a shared server is still a real risk** even with all
+  of the above — a determined attacker with edit access could still try to exhaust CPU/disk,
+  attempt a container escape, or abuse the server's outbound network access for anything from
+  cryptomining to scanning other hosts. The mitigations here reduce blast radius; they don't
+  eliminate it. Anyone deploying this for real should also consider: outbound network
+  restrictions, a per-room or per-session CPU/wall-clock quota enforced at the container
+  level (not just ulimits), and treating every room's workspace as untrusted after the fact.
 
 ## Testing M1
 

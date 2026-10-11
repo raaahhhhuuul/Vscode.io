@@ -6,12 +6,14 @@ import { roomStore } from "../services/roomStore.js";
 import { resolveSafePath, readFileSafe, writeFileSafe, PathTraversalError } from "../services/workspaceFs.js";
 import { getOrCreateRoomDoc } from "./yjsRoomDocs.js";
 import { bindYjsConnection } from "./connection.js";
+import { bindTerminalConnection } from "./terminalConnection.js";
 import { registerConnection } from "./connectionRegistry.js";
+import { getOrCreateTerminal } from "../services/terminalManager.js";
 
 interface ParsedDescriptor {
   docName: string;
   roomId: string;
-  kind: "file" | "presence";
+  kind: "file" | "presence" | "terminal";
   filePath?: string;
 }
 
@@ -19,6 +21,10 @@ function parseDocDescriptor(raw: string): ParsedDescriptor | null {
   if (raw.startsWith("presence:")) {
     const roomId = raw.slice("presence:".length);
     return roomId ? { docName: raw, roomId, kind: "presence" } : null;
+  }
+  if (raw.startsWith("terminal:")) {
+    const roomId = raw.slice("terminal:".length);
+    return roomId ? { docName: raw, roomId, kind: "terminal" } : null;
   }
   if (raw.startsWith("file:")) {
     const rest = raw.slice("file:".length);
@@ -35,6 +41,13 @@ function parseDocDescriptor(raw: string): ParsedDescriptor | null {
     }
   }
   return null;
+}
+
+function liveCanWrite(roomId: string, userId: string): () => boolean {
+  return () => {
+    const role = roomStore.getParticipant(roomId, userId)?.role;
+    return role === "owner" || role === "editor";
+  };
 }
 
 function rejectUpgrade(socket: Duplex, status: number, message: string): void {
@@ -55,7 +68,7 @@ function createDebouncedPersist(roomId: string, filePath: string, getContent: ()
   };
 }
 
-export function createYjsWebSocketServer() {
+export function createRoomWebSocketServer() {
   const wss = new WebSocketServer({ noServer: true });
 
   async function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
@@ -107,23 +120,23 @@ export function createYjsWebSocketServer() {
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
+      registerConnection(parsed.roomId, payload.sub, ws);
+
+      if (parsed.kind === "terminal") {
+        const session = getOrCreateTerminal(parsed.roomId);
+        bindTerminalConnection(ws, session, { canWrite: liveCanWrite(parsed.roomId, payload.sub) });
+        return;
+      }
+
       const entry = getOrCreateRoomDoc(parsed.docName);
       const isNewFileDoc = parsed.kind === "file" && entry.conns.size === 0 && !entry.persistenceBound;
-
-      registerConnection(parsed.roomId, payload.sub, ws);
 
       bindYjsConnection(ws, entry, {
         onDocUpdate:
           parsed.kind === "file"
             ? createDebouncedPersist(parsed.roomId, parsed.filePath!, () => entry.doc.getText("content").toString())
             : undefined,
-        canWrite:
-          parsed.kind === "file"
-            ? () => {
-                const role = roomStore.getParticipant(parsed.roomId, payload.sub)?.role;
-                return role === "owner" || role === "editor";
-              }
-            : undefined,
+        canWrite: parsed.kind === "file" ? liveCanWrite(parsed.roomId, payload.sub) : undefined,
       });
 
       if (isNewFileDoc) {
