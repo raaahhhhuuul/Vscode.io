@@ -1,0 +1,32 @@
+{
+  "base": "vs-dark",
+  "inherit": true,
+  "rules": [
+    { "background": "282c34", "token": "" },
+    { "foreground": "5c6370", "fontStyle": "italic", "token": "comment" },
+    { "foreground": "98c379", "token": "string" },
+    { "foreground": "d19a66", "token": "constant.numeric" },
+    { "foreground": "d19a66", "token": "constant.language" },
+    { "foreground": "d19a66", "token": "constant.other" },
+    { "foreground": "e5c07b", "token": "entity.name.class" },
+    { "foreground": "e5c07b", "token": "entity.name.type" },
+    { "foreground": "61afef", "token": "entity.name.function" },
+    { "foreground": "e06c75", "token": "entity.name.tag" },
+    { "foreground": "d19a66", "token": "entity.other.attribute-name" },
+    { "foreground": "c678dd", "token": "keyword" },
+    { "foreground": "c678dd", "token": "storage" },
+    { "foreground": "56b6c2", "token": "support.function" },
+    { "foreground": "e06c75", "token": "variable" },
+    { "foreground": "abb2bf", "token": "variable.parameter" },
+    { "foreground": "56b6c2", "token": "support.type" }
+  ],
+  "colors": {
+    "editor.background": "#282c34",
+    "editor.foreground": "#abb2bf",
+    "editorCursor.foreground": "#528bff",
+    "editor.lineHighlightBackground": "#2c313a",
+    "editorLineNumber.foreground": "#495162",
+    "editor.selectionBackground": "#3e4451",
+    "editorIndentGuide.background": "#3b4048"
+  }
+}

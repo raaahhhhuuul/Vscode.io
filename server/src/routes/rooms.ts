@@ -9,10 +9,11 @@ import { signRoomToken } from "../services/roomToken.js";
 import { supabaseForUser } from "../lib/supabaseForUser.js";
 import { env } from "../config/env.js";
 import { TEAM_CODE_LENGTH } from "../services/teamCode.js";
-import { ensureRoomWorkspace } from "../services/workspaceFs.js";
+import { deleteRoomWorkspace, ensureRoomWorkspace } from "../services/workspaceFs.js";
 import { filesRouter } from "./files.js";
-import { closeConnectionsFor } from "../ws/connectionRegistry.js";
+import { closeAllConnectionsForRoom, closeConnectionsFor } from "../ws/connectionRegistry.js";
 import { clearEditRequest, listEditRequests, requestEdit } from "../ws/editRequests.js";
+import { streamWorkspaceZip } from "../services/exportService.js";
 
 export const roomsRouter = Router();
 roomsRouter.use("/:roomId/files", filesRouter);
@@ -263,5 +264,38 @@ roomsRouter.post("/:roomId/role", requireRoomToken, (req, res) => {
     res.status(404).json({ error: "Participant not found" });
     return;
   }
+  res.json({ ok: true });
+});
+
+const exportLimiter = rateLimit({
+  windowMs: 5 * 60_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.roomAuth?.userId ?? "anonymous",
+  message: { error: "Too many exports — try again in a few minutes" },
+});
+
+roomsRouter.get("/:roomId/export", requireRoomToken, exportLimiter, async (req, res) => {
+  const auth = req.roomAuth!;
+  const room = roomStore.getRoom(auth.roomId)!;
+  try {
+    await streamWorkspaceZip(auth.roomId, room.name, res);
+  } catch (err) {
+    console.error("Export failed", (err as Error).message);
+    if (!res.headersSent) res.status(500).json({ error: "Could not export workspace" });
+  }
+});
+
+roomsRouter.post("/:roomId/close", requireRoomToken, async (req, res) => {
+  const auth = req.roomAuth!;
+  if (auth.role !== "owner") {
+    res.status(403).json({ error: "Only the room owner can close the room" });
+    return;
+  }
+
+  closeAllConnectionsForRoom(auth.roomId);
+  await roomStore.closeRoom(auth.roomId);
+  await deleteRoomWorkspace(auth.roomId);
   res.json({ ok: true });
 });

@@ -36,6 +36,7 @@ export interface RoomStore {
     name: string;
   }): Participant;
   getRoom(roomId: string): RoomRuntime | null;
+  listRoomIds(): string[];
   roomCountForUser(ownerId: string): number;
   totalRoomCount(): number;
   getCurrentCode(roomId: string): { code: string; rotatesAtMs: number } | null;
@@ -125,6 +126,10 @@ export class InMemoryRoomStore implements RoomStore {
     if (!state) return null;
     const { roomId: id, ownerId, name, createdAtMs } = state;
     return { roomId: id, ownerId, name, createdAtMs };
+  }
+
+  listRoomIds(): string[] {
+    return Array.from(this.rooms.keys());
   }
 
   roomCountForUser(ownerId: string): number {

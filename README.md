@@ -3,8 +3,8 @@
 A browser-based, VS Code-style collaborative IDE for student teams. Join a room with a
 rotating team code and code together in real time — no Git required.
 
-> **Status:** M5 done (shared terminal, with safety limits). Deployment (Dockerfile, hosting
-> guide) lands in M7.
+> **Status:** M6 done (themes, loading screen, ZIP export, room lifecycle/idle cleanup).
+> Deployment (Dockerfile, hosting guide) lands in M7 — the last milestone.
 >
 > **Known rough edges, called out honestly:** the file explorer's rename/delete use plain
 > browser `prompt()`/`confirm()` dialogs rather than custom UI; the production client bundle
@@ -152,6 +152,43 @@ rotating team code and code together in real time — no Git required.
   eliminate it. Anyone deploying this for real should also consider: outbound network
   restrictions, a per-room or per-session CPU/wall-clock quota enforced at the container
   level (not just ulimits), and treating every room's workspace as untrusted after the fact.
+
+## Testing M6
+
+- **Themes:** open the picker (top-right of the dashboard, or inside a room) and switch
+  through all 8 — Dark+, Light+, Monokai, Dracula, One Dark, Solarized Dark, GitHub Dark,
+  Night Owl. Confirm it re-colors the *whole app* (landing-style chrome, panels, buttons),
+  not just the Monaco editor — that was the actual point of this milestone's "applies to the
+  whole UI" requirement, not a nice-to-have. Sign out and back in (or reload): your last
+  choice should come back, because it's saved to your Supabase user profile
+  (`user_metadata.theme`), not just `localStorage`.
+  - Dracula/Monokai/Solarized Dark/GitHub Dark/Night Owl are the real theme JSON files from
+    the `monaco-themes` project, vendored directly into
+    `client/src/features/theme/monacoThemes/` rather than taken as an npm dependency — the
+    spec names both options as acceptable. **One Dark isn't in that bundle**, so it's a
+    hand-written theme definition matching the well-known Atom One Dark palette (a color
+    scheme, not copyrightable code) — said plainly since it's the one theme here that isn't a
+    direct port of an existing file.
+- **Loading screen:** open a room and watch the three steps light up in order — Connecting →
+  Preparing workspace → Syncing files. These are wired to real calls (`GET /api/rooms/:id`,
+  the file tree endpoint, and a live Yjs WS handshake), not a timer — you can see this by
+  throttling your network in devtools and watching a step visibly sit in its "active" state
+  until the real request finishes, rather than ticking on a fixed schedule.
+- **ZIP export:** click **"Download ZIP"** (visible to every role, including viewers, since
+  it's read-only). Confirm the download contains your files, and that a `node_modules`
+  directory (if you `npm install`ed something in the terminal) is excluded — regenerable
+  clutter, not something worth shipping in a student's download.
+- **Manual room close:** as the owner, open **"Manage access" → "Close room for everyone…"**.
+  Everyone else's connection should drop immediately (not just time out), and the room code
+  stops working — there's nothing left to rejoin.
+- **Idle cleanup:** `ROOM_IDLE_TIMEOUT_MS` is set to 2 minutes locally for testing (use
+  something like 7200000 — 2 hours — in production). Create a room, then close every tab that
+  has it open (no open editor/presence/terminal connection from anyone). Wait a bit over 2
+  minutes; the room and its workspace directory should be gone — confirmed by Vitest with a
+  mocked timeout rather than an actual 2-minute wait, but worth seeing for real once. Idleness
+  is measured by **connection presence, not keystrokes** — an open-but-AFK tab still polls the
+  server every few seconds, so counting that as "activity" would have meant a room could never
+  idle out as long as one browser tab was merely left open.
 
 ## Testing M1
 

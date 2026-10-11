@@ -1,12 +1,26 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+:root {
+  /* Dark+ as the static baseline — ThemeProvider overrides these inline
+   * once it knows the user's actual preference (see features/theme). */
+  --color-editor-bg: #1e1e1e;
+  --color-editor-panel: #252526;
+  --color-editor-sidebar: #333333;
+  --color-editor-border: #3c3c3c;
+  --color-editor-accent: #007acc;
+  --color-editor-text: #cccccc;
+  --color-editor-muted: #8a8a8a;
+  --color-editor-heading: #ffffff;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
   body {
     @apply bg-editor-bg text-editor-text antialiased;
+    transition: background-color 150ms ease, color 150ms ease;
   }
 }
 

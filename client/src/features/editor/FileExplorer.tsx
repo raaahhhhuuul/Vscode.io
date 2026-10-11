@@ -34,8 +34,8 @@ function Row({
   return (
     <div>
       <div
-        className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-white/5 ${
-          isActive ? "bg-white/10 text-white" : "text-editor-text"
+        className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-editor-accent/10 ${
+          isActive ? "bg-editor-accent/15 text-editor-heading" : "text-editor-text"
         }`}
         style={{ paddingLeft: depth * 14 + 4 }}
         onClick={() => (node.type === "dir" ? setOpen((o) => !o) : onOpenFile(node.path))}
@@ -50,7 +50,7 @@ function Row({
                 e.stopPropagation();
                 onRename(node);
               }}
-              className="hover:text-white"
+              className="hover:text-editor-heading"
             >
               ✎
             </button>
@@ -153,10 +153,10 @@ export function FileExplorer({ roomId, roomToken, canEdit, activePath, onOpenFil
         <span className="text-xs font-semibold uppercase tracking-wide text-editor-muted">Explorer</span>
         {canEdit && (
           <div className="flex gap-2 text-sm text-editor-muted">
-            <button title="New file" onClick={handleNewFile} className="hover:text-white">
+            <button title="New file" onClick={handleNewFile} className="hover:text-editor-heading">
               +File
             </button>
-            <button title="New folder" onClick={handleNewFolder} className="hover:text-white">
+            <button title="New folder" onClick={handleNewFolder} className="hover:text-editor-heading">
               +Folder
             </button>
           </div>

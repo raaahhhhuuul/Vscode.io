@@ -16,8 +16,8 @@ export function ActivityBar() {
           title={icon.label}
           disabled={!icon.enabled}
           className={`flex h-10 w-10 items-center justify-center rounded text-lg ${
-            i === 0 ? "border-l-2 border-editor-accent text-white" : "text-editor-muted"
-          } ${icon.enabled ? "hover:text-white" : "cursor-not-allowed opacity-40"}`}
+            i === 0 ? "border-l-2 border-editor-accent text-editor-heading" : "text-editor-muted"
+          } ${icon.enabled ? "hover:text-editor-heading" : "cursor-not-allowed opacity-40"}`}
         >
           {icon.glyph}
         </button>

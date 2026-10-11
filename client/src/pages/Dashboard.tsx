@@ -5,6 +5,7 @@ import { useAuth } from "../features/auth/AuthContext";
 import { apiGet } from "../lib/api";
 import { createRoom } from "../features/rooms/api";
 import { setStoredRoomToken } from "../features/rooms/roomTokenStorage";
+import { ThemePicker } from "../features/theme/ThemePicker";
 
 export function Dashboard() {
   const { session, signOut } = useAuth();
@@ -40,13 +41,16 @@ export function Dashboard() {
     <div className="min-h-screen bg-editor-bg p-8 text-editor-text">
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-white">Dashboard</h1>
-          <button
-            onClick={signOut}
-            className="rounded-md border border-editor-border px-3 py-1.5 text-sm text-editor-muted transition hover:text-white"
-          >
-            Sign out
-          </button>
+          <h1 className="text-xl font-semibold text-editor-heading">Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <ThemePicker />
+            <button
+              onClick={signOut}
+              className="rounded-md border border-editor-border px-3 py-1.5 text-sm text-editor-muted transition hover:text-editor-heading"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         <div className="rounded-lg border border-editor-border bg-editor-panel p-6">
@@ -68,7 +72,7 @@ export function Dashboard() {
             onSubmit={handleCreateRoom}
             className="rounded-lg border border-editor-border bg-editor-panel p-4"
           >
-            <h2 className="mb-3 text-sm font-semibold text-white">Create a room</h2>
+            <h2 className="mb-3 text-sm font-semibold text-editor-heading">Create a room</h2>
             <input
               value={roomName}
               onChange={(e) => setRoomName(e.target.value)}
@@ -88,7 +92,7 @@ export function Dashboard() {
 
           <div className="flex flex-col justify-between rounded-lg border border-editor-border bg-editor-panel p-4">
             <div>
-              <h2 className="mb-1 text-sm font-semibold text-white">Join a room</h2>
+              <h2 className="mb-1 text-sm font-semibold text-editor-heading">Join a room</h2>
               <p className="text-xs text-editor-muted">Have a 6-character code from a teammate?</p>
             </div>
             <button
@@ -100,9 +104,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        <p className="mt-6 text-sm text-editor-muted">
-          The editor workspace and shared terminal arrive in later milestones.
-        </p>
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ import { useRoomPresence } from "./useRoomPresence";
 import { roomWsBase } from "./wsUrl";
 import { colorForUserId } from "./colors";
 import {
+  closeRoom,
+  downloadWorkspaceZip,
   kickParticipant,
   requestEditAccess,
   respondToEditRequest,
@@ -28,18 +30,22 @@ interface OpenFileEntry {
 
 interface EditorWorkspaceProps {
   roomId: string;
+  roomName: string;
   roomToken: string;
   you: { userId: string; displayName: string | null; role: Role };
   participants: Participant[];
   onParticipantsChanged: () => void;
+  onRoomClosed: () => void;
 }
 
 export function EditorWorkspace({
   roomId,
+  roomName,
   roomToken,
   you,
   participants,
   onParticipantsChanged,
+  onRoomClosed,
 }: EditorWorkspaceProps) {
   const [openPaths, setOpenPaths] = useState<string[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -83,6 +89,20 @@ export function EditorWorkspace({
   async function handleKick(userId: string) {
     await kickParticipant(roomId, roomToken, userId).catch(() => {});
     onParticipantsChanged();
+  }
+
+  async function handleExport() {
+    try {
+      await downloadWorkspaceZip(roomId, roomToken, roomName);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
+  async function handleCloseRoom() {
+    if (!window.confirm("Close this room for everyone? Nobody will be able to rejoin.")) return;
+    await closeRoom(roomId, roomToken).catch(() => {});
+    onRoomClosed();
   }
 
   function openFile(path: string) {
@@ -151,16 +171,19 @@ export function EditorWorkspace({
         )}
         <div className="flex items-center gap-3">
           <PresenceAvatars participants={participants} liveUserIds={liveUserIds} />
+          <button onClick={handleExport} className="px-3 text-xs text-editor-muted hover:text-editor-heading">
+            Download ZIP
+          </button>
           <button
             onClick={() => setShowTerminal((v) => !v)}
-            className="px-3 text-xs text-editor-muted hover:text-white"
+            className="px-3 text-xs text-editor-muted hover:text-editor-heading"
           >
             {showTerminal ? "Hide terminal" : "Show terminal"}
           </button>
           {isOwner && (
             <button
               onClick={() => setShowManagePanel((v) => !v)}
-              className="px-3 text-xs text-editor-muted hover:text-white"
+              className="px-3 text-xs text-editor-muted hover:text-editor-heading"
             >
               Manage access
             </button>
@@ -173,6 +196,7 @@ export function EditorWorkspace({
           ownerId={you.role === "owner" ? you.userId : participants.find((p) => p.role === "owner")?.userId ?? ""}
           onChangeRole={handleChangeRole}
           onKick={handleKick}
+          onCloseRoom={handleCloseRoom}
           onClose={() => setShowManagePanel(false)}
         />
       )}

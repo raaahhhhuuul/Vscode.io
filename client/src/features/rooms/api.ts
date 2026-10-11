@@ -119,3 +119,32 @@ export async function setParticipantRole(
   });
   await parseJsonOrThrow(res);
 }
+
+/** Downloads the room's workspace as a ZIP via a real browser save, not a
+ * same-tab navigation (a GET with an auth header can't just be an <a href>). */
+export async function downloadWorkspaceZip(roomId: string, roomToken: string, roomName: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/rooms/${roomId}/export`, {
+    headers: roomAuthHeader(roomToken),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error((body as { error?: string } | null)?.error ?? `Export failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${roomName.replace(/[^a-zA-Z0-9-_]+/g, "-") || "workspace"}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function closeRoom(roomId: string, roomToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/rooms/${roomId}/close`, {
+    method: "POST",
+    headers: roomAuthHeader(roomToken),
+  });
+  await parseJsonOrThrow(res);
+}

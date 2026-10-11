@@ -44,4 +44,17 @@ export const env = {
   // non-root, satisfying "run as a non-root user" without this.
   terminalUid: process.env.TERMINAL_UID ? Number(process.env.TERMINAL_UID) : undefined,
   terminalGid: process.env.TERMINAL_GID ? Number(process.env.TERMINAL_GID) : undefined,
+
+  // A room is "idle" when it has had zero open WS connections (editor,
+  // presence, or terminal — from anyone) for this long. Measured by
+  // connection presence, not keystrokes — otherwise an open-but-AFK tab
+  // polling room state every few seconds would keep it alive forever.
+  roomIdleTimeoutMs: Number(process.env.ROOM_IDLE_TIMEOUT_MS ?? 2 * 60 * 60_000),
+
+  // Directories excluded from the "download workspace as ZIP" export —
+  // regenerable via the package manifest, and often huge.
+  zipExcludeDirNames: (process.env.ZIP_EXCLUDE_DIR_NAMES ?? "node_modules,.git,__pycache__,.venv")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 };

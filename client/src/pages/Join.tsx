@@ -30,7 +30,7 @@ export function Join() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg border border-editor-border bg-editor-panel p-8 shadow-xl"
       >
-        <h1 className="mb-2 text-center text-xl font-semibold text-white">Join a room</h1>
+        <h1 className="mb-2 text-center text-xl font-semibold text-editor-heading">Join a room</h1>
         <p className="mb-6 text-center text-sm text-editor-muted">
           Enter the 6-character code your teammate shared with you.
         </p>
@@ -41,7 +41,7 @@ export function Join() {
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           maxLength={6}
           placeholder="ABC234"
-          className="w-full rounded-md border border-editor-border bg-editor-bg px-3 py-3 text-center font-mono text-2xl tracking-[0.3em] text-white outline-none focus:border-editor-accent"
+          className="w-full rounded-md border border-editor-border bg-editor-bg px-3 py-3 text-center font-mono text-2xl tracking-[0.3em] text-editor-heading outline-none focus:border-editor-accent"
         />
 
         {error && <p className="mt-3 text-center text-sm text-red-400">{error}</p>}

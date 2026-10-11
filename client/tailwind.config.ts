@@ -5,15 +5,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        // VS Code-inspired dark palette, not a pixel-perfect token rip.
+        // Backed by CSS custom properties (see src/features/theme/themes.ts
+        // + index.css) so the theme picker can swap every one of these at
+        // once, for the whole app — not just the Monaco editor.
         editor: {
-          bg: "#1e1e1e",
-          panel: "#252526",
-          sidebar: "#333333",
-          border: "#3c3c3c",
-          accent: "#007acc",
-          text: "#cccccc",
-          muted: "#8a8a8a",
+          bg: "var(--color-editor-bg)",
+          panel: "var(--color-editor-panel)",
+          sidebar: "var(--color-editor-sidebar)",
+          border: "var(--color-editor-border)",
+          accent: "var(--color-editor-accent)",
+          text: "var(--color-editor-text)",
+          muted: "var(--color-editor-muted)",
+          heading: "var(--color-editor-heading)",
         },
       },
       fontFamily: {

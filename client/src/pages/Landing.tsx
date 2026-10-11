@@ -87,14 +87,14 @@ export function Landing() {
     <div className="min-h-screen bg-editor-bg text-editor-text">
       <header className="sticky top-0 z-10 border-b border-editor-border/60 bg-editor-bg/80 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-semibold text-white">
+          <span className="text-lg font-semibold text-editor-heading">
             Sync<span className="text-editor-accent">Code</span>
           </span>
           <div className="flex items-center gap-4">
-            <a href="#features" className="hidden text-sm text-editor-muted hover:text-white sm:block">
+            <a href="#features" className="hidden text-sm text-editor-muted hover:text-editor-heading sm:block">
               Features
             </a>
-            <a href="#how-it-works" className="hidden text-sm text-editor-muted hover:text-white sm:block">
+            <a href="#how-it-works" className="hidden text-sm text-editor-muted hover:text-editor-heading sm:block">
               How it works
             </a>
             <Link
@@ -109,7 +109,7 @@ export function Landing() {
 
       <section className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-2 lg:items-center lg:py-28">
         <div className="animate-fade-up">
-          <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">
+          <h1 className="text-4xl font-bold leading-tight text-editor-heading sm:text-5xl">
             Code with your team, <span className="text-editor-accent">live</span>, in the browser.
           </h1>
           <p className="mt-5 max-w-md text-editor-muted">
@@ -139,14 +139,14 @@ export function Landing() {
 
       <section id="features" className="border-t border-editor-border/60 bg-editor-panel/40 py-20">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-2xl font-bold text-white sm:text-3xl">Everything your team needs</h2>
+          <h2 className="text-center text-2xl font-bold text-editor-heading sm:text-3xl">Everything your team needs</h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <div
                 key={f.title}
                 className="rounded-lg border border-editor-border bg-editor-panel p-6 transition hover:border-editor-accent/60"
               >
-                <h3 className="font-semibold text-white">{f.title}</h3>
+                <h3 className="font-semibold text-editor-heading">{f.title}</h3>
                 <p className="mt-2 text-sm text-editor-muted">{f.desc}</p>
               </div>
             ))}
@@ -156,14 +156,14 @@ export function Landing() {
 
       <section id="how-it-works" className="py-20">
         <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center text-2xl font-bold text-white sm:text-3xl">How it works</h2>
+          <h2 className="text-center text-2xl font-bold text-editor-heading sm:text-3xl">How it works</h2>
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {STEPS.map((s) => (
               <div key={s.n} className="text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-editor-accent/40 font-mono text-editor-accent">
                   {s.n}
                 </div>
-                <h3 className="font-semibold text-white">{s.title}</h3>
+                <h3 className="font-semibold text-editor-heading">{s.title}</h3>
                 <p className="mt-2 text-sm text-editor-muted">{s.desc}</p>
               </div>
             ))}
@@ -173,7 +173,7 @@ export function Landing() {
 
       <section className="border-t border-editor-border/60 py-20">
         <div className="mx-auto max-w-2xl px-6 text-center">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">Ready to ship your next hackathon project?</h2>
+          <h2 className="text-2xl font-bold text-editor-heading sm:text-3xl">Ready to ship your next hackathon project?</h2>
           <p className="mt-3 text-editor-muted">Free to use. No Git knowledge required.</p>
           <Link
             to="/login"

@@ -5,6 +5,8 @@ import type * as Y from "yjs";
 import type { WebsocketProvider } from "y-websocket";
 import { languageForPath } from "./languages";
 import { useRemoteCursorStyles } from "./useRemoteCursorStyles";
+import { useTheme } from "../theme/ThemeContext";
+import { getTheme } from "../theme/themes";
 
 interface MonacoFileEditorProps {
   path: string;
@@ -17,6 +19,7 @@ interface MonacoFileEditorProps {
 export function MonacoFileEditor({ path, doc, provider, readOnly, onCursorMove }: MonacoFileEditorProps) {
   const bindingRef = useRef<MonacoBinding | null>(null);
   useRemoteCursorStyles(provider.awareness);
+  const { themeId } = useTheme();
 
   const handleMount: OnMount = (editor) => {
     const model = editor.getModel();
@@ -37,7 +40,7 @@ export function MonacoFileEditor({ path, doc, provider, readOnly, onCursorMove }
       key={path}
       path={path}
       defaultLanguage={languageForPath(path)}
-      theme="vs-dark"
+      theme={getTheme(themeId).monacoThemeId}
       options={{
         readOnly,
         minimap: { enabled: true },

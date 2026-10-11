@@ -20,7 +20,7 @@ export function EditorTabs({ openPaths, activePath, onSelect, onClose }: EditorT
             key={path}
             onClick={() => onSelect(path)}
             className={`group flex shrink-0 cursor-pointer items-center gap-2 border-r border-editor-border px-3 text-sm ${
-              isActive ? "bg-editor-bg text-white" : "text-editor-muted hover:text-white"
+              isActive ? "bg-editor-bg text-editor-heading" : "text-editor-muted hover:text-editor-heading"
             }`}
           >
             <span>{name}</span>

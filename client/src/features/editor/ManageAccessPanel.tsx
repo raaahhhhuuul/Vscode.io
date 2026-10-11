@@ -6,15 +6,23 @@ interface ManageAccessPanelProps {
   ownerId: string;
   onChangeRole: (userId: string, role: "editor" | "viewer") => void;
   onKick: (userId: string) => void;
+  onCloseRoom: () => void;
   onClose: () => void;
 }
 
-export function ManageAccessPanel({ participants, ownerId, onChangeRole, onKick, onClose }: ManageAccessPanelProps) {
+export function ManageAccessPanel({
+  participants,
+  ownerId,
+  onChangeRole,
+  onKick,
+  onCloseRoom,
+  onClose,
+}: ManageAccessPanelProps) {
   return (
     <div className="absolute right-4 top-12 z-20 w-72 rounded-md border border-editor-border bg-editor-panel shadow-xl">
       <div className="flex items-center justify-between border-b border-editor-border px-3 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-editor-muted">Manage access</span>
-        <button onClick={onClose} className="text-xs text-editor-muted hover:text-white">
+        <button onClick={onClose} className="text-xs text-editor-muted hover:text-editor-heading">
           ✕
         </button>
       </div>
@@ -29,6 +37,14 @@ export function ManageAccessPanel({ participants, ownerId, onChangeRole, onKick,
           />
         ))}
       </ul>
+      <div className="border-t border-editor-border p-2">
+        <button
+          onClick={onCloseRoom}
+          className="w-full rounded px-2 py-1 text-left text-xs text-red-400 hover:bg-red-500/10"
+        >
+          Close room for everyone…
+        </button>
+      </div>
     </div>
   );
 }

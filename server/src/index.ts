@@ -5,6 +5,7 @@ import { createRoomWebSocketServer } from "./ws/upgrade.js";
 import { closeRoomDocs } from "./ws/yjsRoomDocs.js";
 import { closeTerminal } from "./services/terminalManager.js";
 import { roomStore } from "./services/roomStore.js";
+import { startRoomIdleWatcher } from "./services/roomIdleWatcher.js";
 
 const app = createApp();
 const server = http.createServer(app);
@@ -17,13 +18,17 @@ server.on("upgrade", (req, socket, head) => {
   });
 });
 
-// Whenever a room closes (idle cleanup in M6, or an owner-initiated close),
-// tear down its live Yjs docs and terminal so nothing keeps running for a
-// room that no longer exists in roomStore.
-roomStore.onRoomClosing((roomId) => {
+// Whenever a room closes (idle cleanup, or an owner-initiated close), tear
+// down its live Yjs docs and terminal so nothing keeps running for a room
+// that no longer exists in roomStore. closeRoom() awaits this, so a caller
+// deleting the workspace directory right after won't race the terminal
+// process actually exiting (see terminalManager.kill()).
+roomStore.onRoomClosing(async (roomId) => {
   closeRoomDocs(roomId);
-  closeTerminal(roomId);
+  await closeTerminal(roomId);
 });
+
+startRoomIdleWatcher();
 
 server.listen(env.port, () => {
   console.log(`[server] listening on http://localhost:${env.port}`);

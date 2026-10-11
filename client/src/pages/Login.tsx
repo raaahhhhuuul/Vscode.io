@@ -21,10 +21,10 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-editor-bg px-4">
       <div className="w-full max-w-sm rounded-lg border border-editor-border bg-editor-panel p-8 shadow-xl animate-fade-up">
-        <Link to="/" className="mb-6 block text-center text-lg font-semibold text-white">
+        <Link to="/" className="mb-6 block text-center text-lg font-semibold text-editor-heading">
           Sync<span className="text-editor-accent">Code</span>
         </Link>
-        <h1 className="mb-6 text-center text-xl font-semibold text-white">Sign in to continue</h1>
+        <h1 className="mb-6 text-center text-xl font-semibold text-editor-heading">Sign in to continue</h1>
 
         <div className="space-y-3">
           <button
