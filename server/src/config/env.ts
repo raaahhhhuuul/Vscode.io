@@ -57,4 +57,9 @@ export const env = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
+
+  // Caps a single WebSocket frame ('ws' defaults to 100MiB). Sized above
+  // maxFileSizeBytes plus protocol overhead so a legitimate full-document
+  // sync never trips it, while still bounding a malicious oversized frame.
+  wsMaxPayloadBytes: Number(process.env.WS_MAX_PAYLOAD_BYTES ?? 10_000_000),
 };

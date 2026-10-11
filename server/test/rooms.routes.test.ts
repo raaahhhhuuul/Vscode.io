@@ -122,4 +122,20 @@ describe("rooms routes", () => {
     }
     expect(lastStatus).toBe(429);
   });
+
+  it("rate-limits repeated room creation from the same user", async () => {
+    const createdRoomIds: string[] = [];
+    let lastStatus = 0;
+    for (let i = 0; i < 11; i++) {
+      const res = await request(app)
+        .post("/api/rooms")
+        .set("Authorization", "Bearer token-room-spammer")
+        .send({ name: `Room ${i}` });
+      lastStatus = res.status;
+      if (res.status === 201) createdRoomIds.push(res.body.room.id);
+    }
+    expect(lastStatus).toBe(429);
+
+    for (const roomId of createdRoomIds) await closeRoom(roomId);
+  });
 });

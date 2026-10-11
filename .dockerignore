@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+**/dist
+**/*.tsbuildinfo
+server/workspaces
+client/vite.config.js
+client/vite.config.d.ts
+**/.env
+**/.env.local
+!**/.env.example
+*.log

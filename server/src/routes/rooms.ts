@@ -26,7 +26,16 @@ function isValidRoomName(name: unknown): name is string {
   return typeof name === "string" && name.trim().length >= 1 && name.trim().length <= 60;
 }
 
-roomsRouter.post("/", requireSupabaseAuth, async (req, res) => {
+const createRoomLimiter = rateLimit({
+  windowMs: 5 * 60_000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? "anonymous",
+  message: { error: "Too many rooms created — try again in a few minutes" },
+});
+
+roomsRouter.post("/", requireSupabaseAuth, createRoomLimiter, async (req, res) => {
   const user = req.user!;
   const rawName = (req.body as { name?: unknown } | undefined)?.name;
   if (!isValidRoomName(rawName)) {

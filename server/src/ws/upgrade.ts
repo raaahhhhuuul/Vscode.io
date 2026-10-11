@@ -9,6 +9,7 @@ import { bindYjsConnection } from "./connection.js";
 import { bindTerminalConnection } from "./terminalConnection.js";
 import { registerConnection } from "./connectionRegistry.js";
 import { getOrCreateTerminal } from "../services/terminalManager.js";
+import { env } from "../config/env.js";
 
 interface ParsedDescriptor {
   docName: string;
@@ -69,7 +70,10 @@ function createDebouncedPersist(roomId: string, filePath: string, getContent: ()
 }
 
 export function createRoomWebSocketServer() {
-  const wss = new WebSocketServer({ noServer: true });
+  // 'ws' defaults to a 100MiB maxPayload — far more than any legitimate
+  // message here (sync/awareness updates, terminal I/O, file content up to
+  // maxFileSizeBytes) needs, and an easy memory-pressure DoS otherwise.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: env.wsMaxPayloadBytes });
 
   async function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
     let url: URL;
