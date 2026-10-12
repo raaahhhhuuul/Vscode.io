@@ -32,7 +32,7 @@ export function RoomLoadingScreen({ stage, fullScreen = true }: RoomLoadingScree
     >
       {fullScreen && (
         <div className="text-lg font-semibold text-editor-heading">
-          Sync<span className="text-editor-accent">Code</span>
+          VScode<span className="text-editor-accent">.io</span>
         </div>
       )}
       <ul className="w-full max-w-xs space-y-4">

@@ -157,7 +157,7 @@ export function Landing() {
       <header className="sticky top-0 z-10 border-b border-editor-border/60 bg-editor-bg/80 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <span className="text-lg font-semibold text-editor-heading">
-            Sync<span className="text-editor-accent">Code</span>
+            VScode<span className="text-editor-accent">.io</span>
           </span>
           <div className="flex items-center gap-6">
             <a href="#features" className="hidden text-sm text-editor-muted hover:text-editor-heading sm:block">
@@ -283,7 +283,7 @@ export function Landing() {
       </section>
 
       <footer className="border-t border-editor-border/60 py-8 text-center text-xs text-editor-muted">
-        SyncCode is inspired by VS Code's look and feel but is an independent project, not affiliated with Microsoft.
+        VScode.io is inspired by VS Code's look and feel but is an independent project, not affiliated with Microsoft.
       </footer>
     </div>
   );
