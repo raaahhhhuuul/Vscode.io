@@ -93,7 +93,10 @@ export function FileExplorer({ roomId, roomToken, canEdit, activePath, onOpenFil
 
   const refresh = useCallback(() => {
     fetchTree(roomId, roomToken)
-      .then(setTree)
+      .then((next) => {
+        setTree(next);
+        setError(null);
+      })
       .catch((err: Error) => setError(err.message));
   }, [roomId, roomToken]);
 

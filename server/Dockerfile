@@ -31,15 +31,28 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# python3/make/g++ are used once below to install node-pty's production
-# dependency, then removed — they don't belong in the final image. bash,
-# the rest of python3, and git stay: they're runtime tools for the shared
-# terminal (M5), not build tooling. Add whatever else your students need
-# here (a JDK, Go, Rust, …) — "if those tools exist on the server" (per the
-# spec) means exactly this list.
+# Language toolchains for the shared terminal — "if those tools exist on the
+# server" (per the spec) means exactly this list. Node.js/npm come with the
+# base image. Trim lines you don't need to shrink the image (Rust and the JDK
+# are the biggest).
+#   C/C++  : gcc, g++, make, gdb, cmake        Python : python3, pip, venv
+#   Java   : OpenJDK 17 (javac, java)          Go     : go
+#   Rust   : rustc, cargo                      Ruby   : ruby, gem
+#   PHP    : php                               SQLite : sqlite3
+# plus everyday shell tools (git, curl, wget, nano, vim, less, zip, …).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ bash python3-pip git \
+      bash ca-certificates git curl wget nano vim-tiny less procps file tree \
+      zip unzip xz-utils jq sqlite3 \
+      build-essential gdb cmake pkg-config \
+      python3 python3-pip python3-venv python3-dev python-is-python3 \
+      default-jdk-headless \
+      golang-go \
+      rustc cargo \
+      ruby-full \
+      php-cli \
     && rm -rf /var/lib/apt/lists/*
+# (pip/npm/cargo/go install locations for the terminal are set per shell in
+# server/src/services/terminalManager.ts.)
 
 # A dedicated non-root user. The server process itself runs as this user,
 # which already satisfies "run as a non-root user" for the terminal's child
@@ -52,9 +65,9 @@ RUN groupadd --system --gid 10001 synccode \
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/package.json
 COPY server/package.json server/package.json
+# make/g++ stay installed: they're student tools now, not just build tooling.
 RUN npm ci --omit=dev --workspace=shared --workspace=server \
-    && apt-get purge -y --auto-remove make g++ \
-    && rm -rf /var/lib/apt/lists/* /root/.npm
+    && rm -rf /root/.npm
 
 COPY --from=builder /app/shared/dist shared/dist
 COPY --from=builder /app/server/dist server/dist

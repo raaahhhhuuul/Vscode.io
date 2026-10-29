@@ -1,16 +1,41 @@
 import "dotenv/config";
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value;
+const REQUIRED_VARS = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "ROOM_TOKEN_SECRET"] as const;
+
+// Report every missing var at once, with a pointer to the fix, instead of
+// crashing on the first one with a bare stack trace.
+const missingVars = REQUIRED_VARS.filter((name) => !process.env[name]);
+if (missingVars.length > 0) {
+  throw new Error(
+    `Missing required env var${missingVars.length > 1 ? "s" : ""}: ${missingVars.join(", ")}.\n` +
+      `Copy server/.env.example to server/.env and fill in your Supabase project's values.`,
+  );
 }
 
+function required(name: (typeof REQUIRED_VARS)[number]): string {
+  return process.env[name]!;
+}
+
+const isProduction = process.env.NODE_ENV === "production";
+
 export const env = {
+  isProduction,
   port: Number(process.env.PORT ?? 4000),
-  corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+  // Comma-separated list of allowed browser origins. In development, any
+  // localhost/127.0.0.1 origin is also accepted (see app.ts) so Vite
+  // falling back to another port doesn't silently break every request.
+  corsOrigins: (process.env.CORS_ORIGIN ?? "http://localhost:5173")
+    .split(",")
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
+  // Set when running behind a reverse proxy/load balancer (Render, Fly,
+  // nginx…) so rate limits key on the real client IP instead of the proxy's.
+  // Accepts a hop count ("1") or "true".
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  // Baseline per-IP limit for all /api traffic. Each open room tab polls a
+  // few endpoints, so this must comfortably fit several tabs/users behind
+  // one IP (a classroom NAT, or testing with multiple tabs locally).
+  apiRateLimitPerMinute: Number(process.env.API_RATE_LIMIT_PER_MINUTE ?? 600),
   supabaseUrl: required("SUPABASE_URL"),
   supabaseAnonKey: required("SUPABASE_ANON_KEY"),
 
@@ -34,8 +59,12 @@ export const env = {
   terminalIdleTimeoutMs: Number(process.env.TERMINAL_IDLE_TIMEOUT_MS ?? 20 * 60_000),
   terminalScrollbackBytes: Number(process.env.TERMINAL_SCROLLBACK_BYTES ?? 200_000),
   // POSIX-only ulimits applied via the shell wrapper (see spawnShellCommand).
-  terminalMaxVirtualMemoryKb: Number(process.env.TERMINAL_MAX_VIRTUAL_MEMORY_KB ?? 1_500_000),
-  terminalMaxProcesses: Number(process.env.TERMINAL_MAX_PROCESSES ?? 64),
+  // 0 = off (default): Node/Java/Go reserve huge virtual address space and
+  // fail to start under a -v cap. Cap real memory via the container instead.
+  terminalMaxVirtualMemoryKb: Number(process.env.TERMINAL_MAX_VIRTUAL_MEMORY_KB ?? 0),
+  // RLIMIT_NPROC counts *threads* across the whole uid (the server and every
+  // room's terminal together); a JVM alone starts 20+, so keep this generous.
+  terminalMaxProcesses: Number(process.env.TERMINAL_MAX_PROCESSES ?? 1024),
   terminalMaxCpuSeconds: Number(process.env.TERMINAL_MAX_CPU_SECONDS ?? 600),
   // Optional: on POSIX, drop the pty process to this uid/gid (e.g. a
   // dedicated low-privilege "sandbox" system user distinct from whatever
@@ -63,3 +92,11 @@ export const env = {
   // sync never trips it, while still bounding a malicious oversized frame.
   wsMaxPayloadBytes: Number(process.env.WS_MAX_PAYLOAD_BYTES ?? 10_000_000),
 };
+
+function parseTrustProxy(raw: string | undefined): boolean | number {
+  if (!raw) return false;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  const hops = Number(raw);
+  return Number.isInteger(hops) && hops >= 0 ? hops : false;
+}

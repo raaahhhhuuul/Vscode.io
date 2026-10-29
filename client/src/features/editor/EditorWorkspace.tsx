@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
+import type { WebsocketProvider } from "y-websocket";
 import type { Participant, Role } from "@synccode/shared";
 import { ActivityBar } from "./ActivityBar";
 import { FileExplorer } from "./FileExplorer";
@@ -12,7 +12,7 @@ import { EditRequestsBanner } from "./EditRequestsBanner";
 import { ManageAccessPanel } from "./ManageAccessPanel";
 import { TerminalPanel } from "../terminal/TerminalPanel";
 import { useRoomPresence } from "./useRoomPresence";
-import { roomWsBase } from "./wsUrl";
+import { createRoomProvider } from "./roomWsProvider";
 import { colorForUserId } from "./colors";
 import {
   closeRoom,
@@ -56,7 +56,7 @@ export function EditorWorkspace({
   const [showManagePanel, setShowManagePanel] = useState(false);
   const [showTerminal, setShowTerminal] = useState(true);
 
-  const { liveUserIds, editRequests } = useRoomPresence(roomId, roomToken, {
+  const { liveUserIds, editRequests } = useRoomPresence(roomId, {
     userId: you.userId,
     displayName: you.displayName,
   });
@@ -72,22 +72,32 @@ export function EditorWorkspace({
     }
   }
 
+  function reportFailure(action: string, err: unknown) {
+    window.alert(`${action}: ${err instanceof Error ? err.message : "something went wrong"}`);
+  }
+
   async function handleApproveRequest(userId: string) {
-    await respondToEditRequest(roomId, roomToken, userId, true).catch(() => {});
+    await respondToEditRequest(roomId, roomToken, userId, true).catch((err) =>
+      reportFailure("Couldn't approve the request", err),
+    );
     onParticipantsChanged();
   }
 
   async function handleDenyRequest(userId: string) {
-    await respondToEditRequest(roomId, roomToken, userId, false).catch(() => {});
+    await respondToEditRequest(roomId, roomToken, userId, false).catch((err) =>
+      reportFailure("Couldn't deny the request", err),
+    );
   }
 
   async function handleChangeRole(userId: string, role: "editor" | "viewer") {
-    await setParticipantRole(roomId, roomToken, userId, role).catch(() => {});
+    await setParticipantRole(roomId, roomToken, userId, role).catch((err) =>
+      reportFailure("Couldn't change their role", err),
+    );
     onParticipantsChanged();
   }
 
   async function handleKick(userId: string) {
-    await kickParticipant(roomId, roomToken, userId).catch(() => {});
+    await kickParticipant(roomId, roomToken, userId).catch((err) => reportFailure("Couldn't remove them", err));
     onParticipantsChanged();
   }
 
@@ -101,16 +111,19 @@ export function EditorWorkspace({
 
   async function handleCloseRoom() {
     if (!window.confirm("Close this room for everyone? Nobody will be able to rejoin.")) return;
-    await closeRoom(roomId, roomToken).catch(() => {});
+    try {
+      await closeRoom(roomId, roomToken);
+    } catch (err) {
+      reportFailure("Couldn't close the room", err);
+      return;
+    }
     onRoomClosed();
   }
 
   function openFile(path: string) {
     if (!filesRef.current.has(path)) {
       const doc = new Y.Doc();
-      const provider = new WebsocketProvider(roomWsBase(), `file:${roomId}:${encodeURIComponent(path)}`, doc, {
-        params: { token: roomToken },
-      });
+      const provider = createRoomProvider(roomId, `file:${roomId}:${encodeURIComponent(path)}`, doc);
       provider.awareness.setLocalStateField("user", {
         id: you.userId,
         name: you.displayName ?? "Anonymous",
@@ -232,7 +245,7 @@ export function EditorWorkspace({
         </div>
         {showTerminal && (
           <div className="h-64 shrink-0 border-t border-editor-border">
-            <TerminalPanel roomId={roomId} roomToken={roomToken} canWrite={canEdit} />
+            <TerminalPanel roomId={roomId} canWrite={canEdit} />
           </div>
         )}
       </div>

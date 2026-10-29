@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
 import type { EditRequest } from "@synccode/shared";
-import { roomWsBase } from "./wsUrl";
+import { createRoomProvider } from "./roomWsProvider";
 import { colorForUserId } from "./colors";
 
 export interface RoomPresence {
@@ -12,7 +11,6 @@ export interface RoomPresence {
 
 export function useRoomPresence(
   roomId: string,
-  roomToken: string,
   you: { userId: string; displayName: string | null },
 ): RoomPresence {
   const [liveUserIds, setLiveUserIds] = useState<Set<string>>(new Set());
@@ -20,9 +18,9 @@ export function useRoomPresence(
 
   useEffect(() => {
     const doc = new Y.Doc();
-    const provider = new WebsocketProvider(roomWsBase(), `presence:${roomId}`, doc, {
-      params: { token: roomToken },
-    });
+    // Reads the latest room token on each (re)connect, so this connection
+    // isn't torn down every time the token is refreshed.
+    const provider = createRoomProvider(roomId, `presence:${roomId}`, doc);
     provider.awareness.setLocalStateField("user", {
       id: you.userId,
       name: you.displayName ?? "Anonymous",
@@ -51,7 +49,7 @@ export function useRoomPresence(
       provider.destroy();
       doc.destroy();
     };
-  }, [roomId, roomToken, you.userId, you.displayName]);
+  }, [roomId, you.userId, you.displayName]);
 
   return { liveUserIds, editRequests };
 }

@@ -11,7 +11,8 @@ import { env } from "../config/env.js";
 import { TEAM_CODE_LENGTH } from "../services/teamCode.js";
 import { deleteRoomWorkspace, ensureRoomWorkspace } from "../services/workspaceFs.js";
 import { filesRouter } from "./files.js";
-import { closeAllConnectionsForRoom, closeConnectionsFor } from "../ws/connectionRegistry.js";
+import { asyncRoute } from "../lib/asyncRoute.js";
+import { closeAllConnectionsForRoom, closeConnectionsFor, getActiveConnectionCount } from "../ws/connectionRegistry.js";
 import { clearEditRequest, listEditRequests, requestEdit } from "../ws/editRequests.js";
 import { streamWorkspaceZip } from "../services/exportService.js";
 
@@ -35,46 +36,114 @@ const createRoomLimiter = rateLimit({
   message: { error: "Too many rooms created — try again in a few minutes" },
 });
 
-roomsRouter.post("/", requireSupabaseAuth, createRoomLimiter, async (req, res) => {
-  const user = req.user!;
-  const rawName = (req.body as { name?: unknown } | undefined)?.name;
-  if (!isValidRoomName(rawName)) {
-    res.status(400).json({ error: "Room name must be 1-60 characters" });
-    return;
-  }
-  const name = rawName.trim();
+// A room nobody has had open for this long is treated as abandoned when its
+// owner hits the per-account room limit. The grace period protects a room
+// that was just created and whose tab hasn't opened its WebSocket yet.
+const ABANDONED_ROOM_GRACE_MS = 60_000;
 
-  if (roomStore.roomCountForUser(user.id) >= env.maxRoomsPerUser) {
-    res.status(403).json({ error: "You've reached the limit of active rooms for one account" });
-    return;
-  }
-  if (roomStore.totalRoomCount() >= env.maxTotalRooms) {
-    res.status(503).json({ error: "SyncCode is at capacity right now — please try again shortly" });
-    return;
-  }
+/**
+ * Closes the user's own rooms that have no open connections, oldest first,
+ * until they're back under the limit. Once an owner leaves a room there is no
+ * way back into it from the UI, so without this a few abandoned rooms would
+ * lock the account out of creating new ones until the idle sweep (hours).
+ */
+async function reclaimAbandonedRooms(userId: string): Promise<void> {
+  const now = Date.now();
+  const abandoned = roomStore
+    .listRoomIds()
+    .map((id) => roomStore.getRoom(id))
+    .filter((room): room is NonNullable<typeof room> => room !== null && room.ownerId === userId)
+    .filter((room) => now - room.createdAtMs > ABANDONED_ROOM_GRACE_MS && getActiveConnectionCount(room.roomId) === 0)
+    .sort((a, b) => a.createdAtMs - b.createdAtMs);
 
-  const roomId = randomUUID();
-  const db = supabaseForUser(req.supabaseAccessToken!);
-  const { error: dbError } = await db.from("rooms").insert({ id: roomId, name, owner_id: user.id });
-  if (dbError) {
-    console.error("Failed to persist room metadata", dbError.message);
-    res.status(500).json({ error: "Could not create room" });
-    return;
+  for (const room of abandoned) {
+    if (roomStore.roomCountForUser(userId) < env.maxRoomsPerUser) break;
+    console.log(`Reclaiming abandoned room ${room.roomId} so its owner can create a new one`);
+    await roomStore.closeRoom(room.roomId);
+    await deleteRoomWorkspace(room.roomId).catch(() => {});
   }
+}
 
-  roomStore.createRoom({ roomId, ownerId: user.id, ownerDisplayName: user.displayName, name });
-  await ensureRoomWorkspace(roomId);
-  const owner = roomStore.getParticipant(roomId, user.id)!;
-  const codeInfo = roomStore.getCurrentCode(roomId)!;
-  const roomToken = signRoomToken({ sub: user.id, roomId, tokenId: owner.tokenId });
+/** Writes the durable room record. Best-effort: the live room is entirely in
+ * memory, so a database hiccup (or a missing migration) is logged loudly
+ * rather than blocking people from creating rooms. */
+async function persistRoomMetadata(accessToken: string, roomId: string, name: string, ownerId: string) {
+  try {
+    const db = supabaseForUser(accessToken);
+    const { error } = await db.from("rooms").insert({ id: roomId, name, owner_id: ownerId });
+    if (error) {
+      console.warn(
+        `Room ${roomId} created, but saving its record to Supabase failed: ${error.message}` +
+          (error.code === "PGRST205" || error.code === "42P01"
+            ? " — run supabase/migrations/0001_rooms.sql in your Supabase SQL editor."
+            : ""),
+      );
+    }
+  } catch (err) {
+    console.warn(`Room ${roomId} created, but saving its record to Supabase threw:`, (err as Error).message);
+  }
+}
 
-  res.status(201).json({
-    room: toRoomSummary(roomId, name, user.id, Date.now()),
-    roomToken,
-    code: codeInfo.code,
-    rotatesAt: new Date(codeInfo.rotatesAtMs).toISOString(),
-  });
-});
+roomsRouter.post(
+  "/",
+  requireSupabaseAuth,
+  createRoomLimiter,
+  asyncRoute(async (req, res) => {
+    const user = req.user!;
+    const rawName = (req.body as { name?: unknown } | undefined)?.name;
+    if (!isValidRoomName(rawName)) {
+      res.status(400).json({ error: "Room name must be 1-60 characters" });
+      return;
+    }
+    const name = rawName.trim();
+
+    if (roomStore.roomCountForUser(user.id) >= env.maxRoomsPerUser) {
+      await reclaimAbandonedRooms(user.id);
+    }
+    if (roomStore.roomCountForUser(user.id) >= env.maxRoomsPerUser) {
+      res.status(403).json({
+        error: `You already have ${env.maxRoomsPerUser} rooms open — close one (Manage access → Close room) before creating another`,
+      });
+      return;
+    }
+    if (roomStore.totalRoomCount() >= env.maxTotalRooms) {
+      res.status(503).json({ error: "SyncCode is at capacity right now — please try again shortly" });
+      return;
+    }
+
+    // Registered in memory synchronously right after the limit checks, so two
+    // concurrent requests can't both slip past them.
+    const roomId = randomUUID();
+    roomStore.createRoom({ roomId, ownerId: user.id, ownerDisplayName: user.displayName, name });
+
+    try {
+      await ensureRoomWorkspace(roomId);
+    } catch (err) {
+      console.error(`Could not create workspace folder for room ${roomId}:`, (err as Error).message);
+      await roomStore.closeRoom(roomId);
+      res.status(500).json({ error: "The server couldn't set up a workspace for this room — please try again" });
+      return;
+    }
+
+    await persistRoomMetadata(req.supabaseAccessToken!, roomId, name, user.id);
+
+    const room = roomStore.getRoom(roomId);
+    const owner = roomStore.getParticipant(roomId, user.id);
+    const codeInfo = roomStore.getCurrentCode(roomId);
+    if (!room || !owner || !codeInfo) {
+      res.status(500).json({ error: "The room closed before it finished opening — please try again" });
+      return;
+    }
+    const roomToken = signRoomToken({ sub: user.id, roomId, tokenId: owner.tokenId });
+
+    res.status(201).json({
+      room: toRoomSummary(roomId, name, user.id, room.createdAtMs),
+      roomToken,
+      code: codeInfo.code,
+      rotatesAt: new Date(codeInfo.rotatesAtMs).toISOString(),
+    });
+  }),
+);
 
 roomsRouter.get("/:roomId/code", requireSupabaseAuth, (req, res) => {
   const room = roomStore.getRoom(req.params.roomId);
@@ -285,26 +354,39 @@ const exportLimiter = rateLimit({
   message: { error: "Too many exports — try again in a few minutes" },
 });
 
-roomsRouter.get("/:roomId/export", requireRoomToken, exportLimiter, async (req, res) => {
-  const auth = req.roomAuth!;
-  const room = roomStore.getRoom(auth.roomId)!;
-  try {
-    await streamWorkspaceZip(auth.roomId, room.name, res);
-  } catch (err) {
-    console.error("Export failed", (err as Error).message);
-    if (!res.headersSent) res.status(500).json({ error: "Could not export workspace" });
-  }
-});
+roomsRouter.get(
+  "/:roomId/export",
+  requireRoomToken,
+  exportLimiter,
+  asyncRoute(async (req, res) => {
+    const auth = req.roomAuth!;
+    const room = roomStore.getRoom(auth.roomId)!;
+    try {
+      await streamWorkspaceZip(auth.roomId, room.name, res);
+    } catch (err) {
+      console.error("Export failed", (err as Error).message);
+      if (!res.headersSent) res.status(500).json({ error: "Could not export workspace" });
+    }
+  }),
+);
 
-roomsRouter.post("/:roomId/close", requireRoomToken, async (req, res) => {
-  const auth = req.roomAuth!;
-  if (auth.role !== "owner") {
-    res.status(403).json({ error: "Only the room owner can close the room" });
-    return;
-  }
+roomsRouter.post(
+  "/:roomId/close",
+  requireRoomToken,
+  asyncRoute(async (req, res) => {
+    const auth = req.roomAuth!;
+    if (auth.role !== "owner") {
+      res.status(403).json({ error: "Only the room owner can close the room" });
+      return;
+    }
 
-  closeAllConnectionsForRoom(auth.roomId);
-  await roomStore.closeRoom(auth.roomId);
-  await deleteRoomWorkspace(auth.roomId);
-  res.json({ ok: true });
-});
+    closeAllConnectionsForRoom(auth.roomId);
+    await roomStore.closeRoom(auth.roomId);
+    // The room is already gone for everyone at this point; a leftover folder
+    // (e.g. a file briefly locked on Windows) is cleaned up, not fatal.
+    await deleteRoomWorkspace(auth.roomId).catch((err) => {
+      console.warn(`Could not delete workspace for closed room ${auth.roomId}:`, (err as Error).message);
+    });
+    res.json({ ok: true });
+  }),
+);

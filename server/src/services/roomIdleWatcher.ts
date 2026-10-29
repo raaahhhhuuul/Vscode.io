@@ -34,8 +34,13 @@ export async function sweepOnce(): Promise<void> {
     if (now - since >= env.roomIdleTimeoutMs) {
       emptySinceMs.delete(roomId);
       console.log(`Room ${roomId} had no connections for too long, closing`);
-      await roomStore.closeRoom(roomId);
-      await deleteRoomWorkspace(roomId);
+      // One room failing to clean up must not stop the sweep for the rest.
+      try {
+        await roomStore.closeRoom(roomId);
+        await deleteRoomWorkspace(roomId);
+      } catch (err) {
+        console.error(`Cleanup of idle room ${roomId} failed:`, (err as Error).message);
+      }
     }
   }
 }

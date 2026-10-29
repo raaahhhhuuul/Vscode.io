@@ -6,8 +6,7 @@ import type {
   RoomStateResponse,
 } from "@synccode/shared";
 import { supabase } from "../../lib/supabase";
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { apiFetch, parseJsonOrThrow } from "../../lib/http";
 
 async function supabaseAuthHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
@@ -19,17 +18,8 @@ function roomAuthHeader(roomToken: string): Record<string, string> {
   return { Authorization: `Bearer ${roomToken}` };
 }
 
-async function parseJsonOrThrow<T>(res: Response): Promise<T> {
-  const body = await res.json().catch(() => null);
-  if (!res.ok) {
-    const message = (body as { error?: string } | null)?.error ?? `Request failed (${res.status})`;
-    throw new Error(message);
-  }
-  return body as T;
-}
-
 export async function createRoom(name: string): Promise<CreateRoomResponse> {
-  const res = await fetch(`${API_URL}/api/rooms`, {
+  const res = await apiFetch(`/api/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await supabaseAuthHeader()) },
     body: JSON.stringify({ name }),
@@ -38,14 +28,14 @@ export async function createRoom(name: string): Promise<CreateRoomResponse> {
 }
 
 export async function fetchRoomCode(roomId: string): Promise<RoomCodeInfo> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/code`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/code`, {
     headers: await supabaseAuthHeader(),
   });
   return parseJsonOrThrow<RoomCodeInfo>(res);
 }
 
 export async function joinRoom(code: string): Promise<JoinRoomResponse> {
-  const res = await fetch(`${API_URL}/api/rooms/join`, {
+  const res = await apiFetch(`/api/rooms/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await supabaseAuthHeader()) },
     body: JSON.stringify({ code }),
@@ -54,14 +44,14 @@ export async function joinRoom(code: string): Promise<JoinRoomResponse> {
 }
 
 export async function fetchRoomState(roomId: string, roomToken: string): Promise<RoomStateResponse> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}`, {
+  const res = await apiFetch(`/api/rooms/${roomId}`, {
     headers: roomAuthHeader(roomToken),
   });
   return parseJsonOrThrow<RoomStateResponse>(res);
 }
 
 export async function refreshRoomToken(roomId: string, roomToken: string): Promise<RefreshRoomTokenResponse> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/refresh-token`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/refresh-token`, {
     method: "POST",
     headers: roomAuthHeader(roomToken),
   });
@@ -69,14 +59,14 @@ export async function refreshRoomToken(roomId: string, roomToken: string): Promi
 }
 
 export async function leaveRoom(roomId: string, roomToken: string): Promise<void> {
-  await fetch(`${API_URL}/api/rooms/${roomId}/leave`, {
+  await apiFetch(`/api/rooms/${roomId}/leave`, {
     method: "POST",
     headers: roomAuthHeader(roomToken),
   });
 }
 
 export async function kickParticipant(roomId: string, roomToken: string, userId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/kick`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/kick`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...roomAuthHeader(roomToken) },
     body: JSON.stringify({ userId }),
@@ -85,7 +75,7 @@ export async function kickParticipant(roomId: string, roomToken: string, userId:
 }
 
 export async function requestEditAccess(roomId: string, roomToken: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/request-edit`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/request-edit`, {
     method: "POST",
     headers: roomAuthHeader(roomToken),
   });
@@ -98,7 +88,7 @@ export async function respondToEditRequest(
   userId: string,
   approve: boolean,
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/edit-requests/respond`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/edit-requests/respond`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...roomAuthHeader(roomToken) },
     body: JSON.stringify({ userId, approve }),
@@ -112,7 +102,7 @@ export async function setParticipantRole(
   userId: string,
   role: "editor" | "viewer",
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/role`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/role`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...roomAuthHeader(roomToken) },
     body: JSON.stringify({ userId, role }),
@@ -123,13 +113,10 @@ export async function setParticipantRole(
 /** Downloads the room's workspace as a ZIP via a real browser save, not a
  * same-tab navigation (a GET with an auth header can't just be an <a href>). */
 export async function downloadWorkspaceZip(roomId: string, roomToken: string, roomName: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/export`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/export`, {
     headers: roomAuthHeader(roomToken),
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error((body as { error?: string } | null)?.error ?? `Export failed (${res.status})`);
-  }
+  if (!res.ok) await parseJsonOrThrow(res);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -138,11 +125,12 @@ export async function downloadWorkspaceZip(roomId: string, roomToken: string, ro
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoking synchronously can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export async function closeRoom(roomId: string, roomToken: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/rooms/${roomId}/close`, {
+  const res = await apiFetch(`/api/rooms/${roomId}/close`, {
     method: "POST",
     headers: roomAuthHeader(roomToken),
   });

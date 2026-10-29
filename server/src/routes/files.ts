@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireRoomToken } from "../middleware/roomAuth.js";
+import { asyncRoute } from "../lib/asyncRoute.js";
 import {
   createEntry,
   deleteEntry,
@@ -18,12 +19,15 @@ function requireNotViewer(role: string): string | null {
   return null;
 }
 
-filesRouter.get("/tree", async (req, res) => {
-  const tree = await listTree(req.roomAuth!.roomId);
-  res.json({ tree });
-});
+filesRouter.get(
+  "/tree",
+  asyncRoute(async (req, res) => {
+    const tree = await listTree(req.roomAuth!.roomId);
+    res.json({ tree });
+  }),
+);
 
-filesRouter.post("/", async (req, res) => {
+filesRouter.post("/", asyncRoute(async (req, res) => {
   const deny = requireNotViewer(req.roomAuth!.role);
   if (deny) {
     res.status(403).json({ error: deny });
@@ -51,9 +55,9 @@ filesRouter.post("/", async (req, res) => {
       res.status(500).json({ error: "Could not create" });
     }
   }
-});
+}));
 
-filesRouter.post("/rename", async (req, res) => {
+filesRouter.post("/rename", asyncRoute(async (req, res) => {
   const deny = requireNotViewer(req.roomAuth!.role);
   if (deny) {
     res.status(403).json({ error: deny });
@@ -78,9 +82,9 @@ filesRouter.post("/rename", async (req, res) => {
       res.status(404).json({ error: "Not found" });
     }
   }
-});
+}));
 
-filesRouter.post("/delete", async (req, res) => {
+filesRouter.post("/delete", asyncRoute(async (req, res) => {
   const deny = requireNotViewer(req.roomAuth!.role);
   if (deny) {
     res.status(403).json({ error: deny });
@@ -103,4 +107,4 @@ filesRouter.post("/delete", async (req, res) => {
       res.status(404).json({ error: "Not found" });
     }
   }
-});
+}));

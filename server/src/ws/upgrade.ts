@@ -127,7 +127,22 @@ export function createRoomWebSocketServer() {
       registerConnection(parsed.roomId, payload.sub, ws);
 
       if (parsed.kind === "terminal") {
-        const session = getOrCreateTerminal(parsed.roomId);
+        let session: ReturnType<typeof getOrCreateTerminal>;
+        try {
+          session = getOrCreateTerminal(parsed.roomId);
+        } catch (err) {
+          // This runs inside ws's upgrade callback: an uncaught throw here
+          // would take down the whole server, not just this terminal.
+          console.error(`Could not start terminal for room ${parsed.roomId}:`, (err as Error).message);
+          ws.send(
+            JSON.stringify({
+              type: "output",
+              data: "\r\n\x1b[31mThe server couldn't start a terminal for this room. Check the server logs.\x1b[0m\r\n",
+            }),
+          );
+          ws.close(1011, "Terminal unavailable");
+          return;
+        }
         bindTerminalConnection(ws, session, { canWrite: liveCanWrite(parsed.roomId, payload.sub) });
         return;
       }

@@ -19,6 +19,10 @@
     "concurrently": "^10.0.5"
   },
   "overrides": {
-    "dompurify": "^3.4.16"
+    "dompurify": "^3.4.17"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true,
+    "esbuild@0.28.2": true
   }
 }
